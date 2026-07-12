@@ -63,6 +63,11 @@ preset_generation_report.json
 ui/test-results/
 ui/playwright-report/
 
+# 非代码目录 (Beta Week 8 清理)
+.trae/
+data/
+docs/
+
 # OS
 .DS_Store
 Thumbs.db
