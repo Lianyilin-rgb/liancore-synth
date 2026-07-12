@@ -1,0 +1,74 @@
+# =============================================================================
+# LianCore - CI/CD 自动构建工作流
+# 触发条件: push/PR 到 main 分支
+# =============================================================================
+name: LianCore Build & Test
+
+on:
+  push:
+    branches: [main, develop, alpha]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # =========================================================================
+  # Windows 构建
+  # =========================================================================
+  build-windows:
+    name: Windows (MSVC 2022)
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DLIANCORE_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Run Tests
+        run: cd build && ctest -C Release --output-on-failure
+
+      - name: Package (NSIS)
+        run: cd build && cpack -C Release
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LianCore-Windows-VST3
+          path: build/LianCore_artefacts/Release/VST3/LianCore.vst3/
+
+  # =========================================================================
+  # macOS 构建
+  # =========================================================================
+  build-macos:
+    name: macOS (Clang)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DLIANCORE_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Run Tests
+        run: cd build && ctest -C Release --output-on-failure
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LianCore-macOS-VST3
+          path: build/LianCore_artefacts/Release/VST3/LianCore.vst3/

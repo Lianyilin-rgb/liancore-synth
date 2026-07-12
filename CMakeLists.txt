@@ -1,0 +1,153 @@
+# =============================================================================
+# LianCore - 商业端侧AI合成器软音源 V3
+# 根CMake构建文件
+# =============================================================================
+cmake_minimum_required(VERSION 3.24)
+project(LianCore VERSION 3.0.0 LANGUAGES CXX)
+
+# C++20 标准要求
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# =============================================================================
+# 全局编译选项
+# =============================================================================
+if(MSVC)
+    add_compile_options(/W4 /MP /arch:AVX2 /fp:fast)
+    add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic -march=native -ffast-math)
+endif()
+
+# =============================================================================
+# JUCE 框架配置
+# =============================================================================
+set(JUCE_VERSION "8.0.6")
+set(JUCE_DIR "${CMAKE_SOURCE_DIR}/libs/JUCE")
+
+# 如果JUCE不存在，通过FetchContent获取
+if(NOT EXISTS "${JUCE_DIR}/CMakeLists.txt")
+    include(FetchContent)
+    FetchContent_Declare(
+        JUCE
+        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+        GIT_TAG ${JUCE_VERSION}
+        SOURCE_DIR ${JUCE_DIR}
+    )
+    FetchContent_MakeAvailable(JUCE)
+endif()
+
+add_subdirectory(${JUCE_DIR})
+
+# =============================================================================
+# 插件配置
+# =============================================================================
+juce_add_plugin(LianCore
+    # 插件元数据
+    COMPANY_NAME "LianCore Audio"
+    PLUGIN_MANUFACTURER_CODE Lian
+    PLUGIN_CODE Lcr1
+    PRODUCT_NAME "LianCore"
+
+    # 插件格式
+    FORMATS VST3 AAX AU
+    VST3_CATEGORIES "Instrument|Synth"
+
+    # 是否需要UI
+    NEEDS_WEB_BROWSER FALSE
+
+    # 源文件
+    SOURCES
+        # 核心音频图引擎
+        src/core/AudioNode.cpp
+        src/core/AudioGraphEngine.cpp
+        src/core/NodeFactory.cpp
+
+        # 合成引擎
+        src/synthesis/WavetableBank.cpp
+        src/synthesis/WavetableOscillator.cpp
+        src/synthesis/VirtualAnalogOscillator.cpp
+        src/synthesis/NoiseGenerator.cpp
+        src/synthesis/FilterProcessor.cpp
+
+        # 调制系统
+        src/modulation/EnvelopeGenerator.cpp
+        src/modulation/LFOGenerator.cpp
+        src/modulation/ModulationMatrix.cpp
+
+        # 参数系统
+        src/params/ParameterTree.cpp
+        src/params/PresetManager.cpp
+
+        # AI推理层
+        src/ai/AIInferenceEngine.cpp
+        src/ai/TextTokenizer.cpp
+        src/ai/ParameterSpaceMapper.cpp
+
+        # 插件入口
+        src/plugin/PluginProcessor.cpp
+        src/plugin/PluginEditor.cpp
+
+    # 头文件搜索路径
+    HEADER_SEARCH_PATHS
+        src/core
+        src/synthesis
+        src/modulation
+        src/params
+        src/ai
+        src/plugin
+        src/utils
+
+    # 链接库
+    LINK_LIBRARIES
+        # ONNX Runtime (Alpha阶段预留，Beta阶段启用)
+        # onnxruntime
+
+    # 编译器定义
+    COMPILE_DEFINITIONS
+        LIANCORE_VERSION=\"${PROJECT_VERSION}\"
+        LIANCORE_ALPHA=1
+        LIANCORE_MAX_WAVETABLE_FRAMES=256
+        LIANCORE_WAVETABLE_FRAME_SIZE=2048
+        LIANCORE_MAX_MODULATION_ROUTES=32
+        LIANCORE_MAX_UNDO_STEPS=50
+        LIANCORE_MAX_POLYPHONY=16
+)
+
+# =============================================================================
+# 测试目标
+# =============================================================================
+option(LIANCORE_BUILD_TESTS "Build unit tests" ON)
+if(LIANCORE_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
+# =============================================================================
+# CPack 打包配置 (NSIS安装包)
+# =============================================================================
+if(WIN32)
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_NSIS_DISPLAY_NAME "LianCore VST3 Synthesizer")
+    set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+    set(CPACK_NSIS_CREATE_ICONS_EXTRA
+        "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\LianCore.lnk' '$INSTDIR\\\\LianCore.vst3'")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Common Files\\\\VST3")
+    set(CPACK_NSIS_INSTALLED_ICON_NAME "LianCore.vst3")
+    set(CPACK_NSIS_HELP_LINK "https://liancore.audio")
+    set(CPACK_NSIS_URL_INFO_ABOUT "https://liancore.audio")
+    set(CPACK_NSIS_CONTACT "support@liancore.audio")
+    set(CPACK_NSIS_MENU_LINKS
+        "https://liancore.audio" "LianCore Homepage"
+    )
+    include(CPack)
+endif()
+
+# =============================================================================
+# 安装规则
+# =============================================================================
+install(TARGETS LianCore
+    BUNDLE DESTINATION .
+    RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/VST3"
+)

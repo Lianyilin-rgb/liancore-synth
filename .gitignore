@@ -1,0 +1,55 @@
+# LianCore - Git忽略规则
+
+# 构建产物
+build/
+cmake-build-*/
+out/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.vst3/
+*.aaxplugin/
+*.component/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln
+*.vcxproj
+*.vcxproj.*
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+
+# 依赖库
+libs/JUCE/
+
+# 用户数据
+UserData/
+
+# 临时文件
+*.tmp
+*.log
+*.swp
+*.swo
+*~
+
+# 敏感信息
+.env
+*.pem
+*.key
+credentials.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
