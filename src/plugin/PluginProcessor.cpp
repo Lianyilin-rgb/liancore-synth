@@ -225,8 +225,9 @@ juce::File PluginProcessor::getModelDirectory() const {
 
 void PluginProcessor::initializeAI() {
     juce::File modelsDir = getModelDirectory();
-    juce::File modelPath = modelsDir.getChildFile("liancore_ai_model.onnx");
 
+    // 1. 加载 MLP 参数预测模型
+    juce::File modelPath = modelsDir.getChildFile("liancore_ai_model.onnx");
     if (modelPath.existsAsFile()) {
         juce::String modelPathStr = modelPath.getFullPathName();
         bool loaded = aiEngine_.loadOnnxModel(modelPathStr.toStdString());
@@ -241,6 +242,24 @@ void PluginProcessor::initializeAI() {
     } else {
         DBG("LianCore: ONNX model not found at " << modelPath.getFullPathName());
         DBG("  Using rule-based inference as fallback");
+    }
+
+    // 2. Gamma: 加载 Transformer 文本编码器
+    juce::File tokenizerPath = modelsDir.getChildFile("tokenizer").getChildFile("tokenizer.model");
+    juce::File transformerPath = modelsDir.getChildFile("transformer_encoder.onnx");
+
+    if (tokenizerPath.existsAsFile() && transformerPath.existsAsFile()) {
+        bool transformerLoaded = aiEngine_.loadTransformerModel(tokenizerPath, transformerPath);
+        if (transformerLoaded) {
+            DBG("LianCore: Transformer text encoder loaded");
+            DBG("  Vocab size: " << aiEngine_.getTransformerEncoder().getVocabSize());
+        } else {
+            DBG("LianCore: Transformer encoder load failed, using char-hash fallback");
+        }
+    } else {
+        DBG("LianCore: Transformer model files not found");
+        DBG("  Tokenizer: " << tokenizerPath.getFullPathName() << " exists=" << (int)tokenizerPath.existsAsFile());
+        DBG("  Transformer: " << transformerPath.getFullPathName() << " exists=" << (int)transformerPath.existsAsFile());
     }
 }
 

@@ -105,6 +105,7 @@ juce_add_plugin(LianCore
         # AI推理层
         src/ai/AIInferenceEngine.cpp
         src/ai/TextTokenizer.cpp
+        src/ai/TransformerTextEncoder.cpp
         src/ai/ParameterSpaceMapper.cpp
         src/ai/AIModelTrainer.cpp
         src/ai/EmotionToParameterMapper.cpp

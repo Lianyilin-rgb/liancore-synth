@@ -7,6 +7,7 @@
 
 #include <JuceHeader.h>
 #include "EmotionToParameterMapper.h"
+#include "TransformerTextEncoder.h"
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -47,6 +48,12 @@ public:
     // =========================================================================
     bool loadModel(const juce::File& onnxFile);
     bool loadOnnxModel(const std::string& onnxPath); // Gamma: 字符串路径版本
+
+    // Gamma: 加载 Transformer 文本编码器
+    bool loadTransformerModel(const juce::File& tokenizerPath,
+                               const juce::File& transformerPath);
+    bool isTransformerLoaded() const { return transformerEncoder_.isLoaded(); }
+    TransformerTextEncoder& getTransformerEncoder() { return transformerEncoder_; }
     void unloadModel();
     bool isModelLoaded() const { return modelLoaded_; }
 
@@ -140,6 +147,9 @@ private:
 
     // 情感映射器 (Beta Week 6)
     EmotionToParameterMapper emotionMapper_;
+
+    // Gamma: Transformer 文本编码器
+    TransformerTextEncoder transformerEncoder_;
 
     // 规则引擎
     void buildKeywordRules();

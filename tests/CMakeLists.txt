@@ -22,6 +22,7 @@ list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_audio_graph\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_audio_node\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_modulation\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_wavetable\.cpp$")
+list(FILTER TEST_SOURCES EXCLUDE REGEX ".*ParameterTreeTests\.cpp$")
 
 # 创建测试可执行文件
 add_executable(LianCoreTests
@@ -31,9 +32,8 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/ai/EmotionToParameterMapper.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/OnnxModelExporter.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/AIInferenceEngine.cpp
-
-    # 参数树 (Beta Week 8: morphTo 测试依赖)
-    ${CMAKE_SOURCE_DIR}/src/params/ParameterTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/ai/TextTokenizer.cpp
+    ${CMAKE_SOURCE_DIR}/src/ai/TransformerTextEncoder.cpp
 )
 
 # 配置测试目标

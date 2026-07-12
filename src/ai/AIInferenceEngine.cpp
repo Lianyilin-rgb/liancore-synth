@@ -89,6 +89,24 @@ bool AIInferenceEngine::loadOnnxModel(const std::string& onnxPath) {
     return loadModel(juce::File(onnxPath));
 }
 
+// Gamma: 加载 Transformer 文本编码器
+bool AIInferenceEngine::loadTransformerModel(
+    const juce::File& tokenizerPath, const juce::File& transformerPath) {
+
+    bool tokenizerLoaded = transformerEncoder_.loadTokenizer(tokenizerPath);
+    bool transformerLoaded = transformerEncoder_.loadTransformer(transformerPath);
+
+    if (tokenizerLoaded && transformerLoaded) {
+        DBG("AIInferenceEngine: Transformer encoder loaded");
+        DBG("  Vocab size: " << transformerEncoder_.getVocabSize());
+        return true;
+    }
+
+    DBG("AIInferenceEngine: Transformer load failed (tokenizer="
+        << (int)tokenizerLoaded << ", transformer=" << (int)transformerLoaded << ")");
+    return false;
+}
+
 void AIInferenceEngine::unloadModel() {
 #ifdef LIANCORE_HAS_ONNX
     ortSession_.reset();
@@ -313,13 +331,18 @@ AIInferenceEngine::GenerationResult AIInferenceEngine::runOnnxInference(
         if (!ortSession_) return result;
 
         // 准备输入张量 (文本编码为浮点向量)
-        // 简化实现: 将文本转换为特征向量
+        // Gamma: 优先使用 Transformer 编码, 回退到字符哈希
         std::vector<float> textFeatures(128, 0.0f);
-        juce::String lowerText = textPrompt.toLowerCase();
-        
-        // 简单文本编码: 基于字符哈希的特征
-        for (int i = 0; i < lowerText.length() && i < 128; ++i) {
-            textFeatures[i % 128] += static_cast<float>(lowerText[i]) / 255.0f;
+
+        if (transformerEncoder_.isLoaded()) {
+            // BPE Tokenizer + 2层 Transformer 编码
+            textFeatures = transformerEncoder_.encode(textPrompt.toStdString());
+        } else {
+            // 回退: 简单字符哈希编码
+            juce::String lowerText = textPrompt.toLowerCase();
+            for (int i = 0; i < lowerText.length() && i < 128; ++i) {
+                textFeatures[i % 128] += static_cast<float>(lowerText[i]) / 255.0f;
+            }
         }
 
         // 创建输入张量

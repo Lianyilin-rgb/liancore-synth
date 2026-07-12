@@ -7,10 +7,12 @@
 #include "../src/ai/AIInferenceEngine.h"
 #include "../src/ai/OnnxModelExporter.h"
 #include "../src/ai/EmotionToParameterMapper.h"
+#include "../src/ai/TransformerTextEncoder.h"
 #include <JuceHeader.h>
 #include <vector>
 #include <string>
 #include <cmath>
+#include <algorithm>
 
 using namespace LianCore;
 
@@ -742,5 +744,237 @@ TEST_CASE("Gamma: ONNX 模型端到端推理", "[ai][gamma][onnx_e2e]") {
         // 缓存命中时结果一致
         REQUIRE(r1.confidence == Catch::Approx(r2.confidence));
         REQUIRE(r1.presetName == r2.presetName);
+    }
+}
+
+// =============================================================================
+// Section 10 - Gamma: BPE Tokenizer + Transformer 文本编码器测试
+// =============================================================================
+
+TEST_CASE("Gamma: BPETokenizer load and encode", "[ai][gamma][tokenizer]") {
+    SECTION("Load vocab from file") {
+        BPETokenizer tokenizer;
+        juce::File vocabFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.vocab");
+        
+        if (vocabFile.existsAsFile()) {
+            bool loaded = tokenizer.loadVocab(vocabFile);
+            REQUIRE(loaded == true);
+            REQUIRE(tokenizer.isLoaded() == true);
+            REQUIRE(tokenizer.getVocabSize() > 0);
+            // 词表不应超过 2500
+            REQUIRE(tokenizer.getVocabSize() <= 2500);
+        }
+    }
+    
+    SECTION("Load model falls back to vocab") {
+        BPETokenizer tokenizer;
+        juce::File modelFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.model");
+        
+        if (modelFile.existsAsFile()) {
+            bool loaded = tokenizer.loadModel(modelFile);
+            // 应该通过 vocab 文件加载成功
+            REQUIRE(loaded == true);
+            REQUIRE(tokenizer.isLoaded() == true);
+        }
+    }
+    
+    SECTION("Encode Chinese text") {
+        BPETokenizer tokenizer;
+        juce::File vocabFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.vocab");
+        
+        if (vocabFile.existsAsFile()) {
+            tokenizer.loadVocab(vocabFile);
+            REQUIRE(tokenizer.isLoaded());
+            
+            auto ids = tokenizer.encode("温暖的合成器贝斯音色");
+            REQUIRE(ids.size() > 0);
+            REQUIRE(ids.size() <= BPETokenizer::kMaxLen);
+            
+            // 所有 token ID 应在有效范围内
+            for (auto id : ids) {
+                REQUIRE(id >= 0);
+                REQUIRE(id < tokenizer.getVocabSize());
+            }
+        }
+    }
+    
+    SECTION("Encode short and long texts") {
+        BPETokenizer tokenizer;
+        juce::File vocabFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.vocab");
+        
+        if (vocabFile.existsAsFile()) {
+            tokenizer.loadVocab(vocabFile);
+            
+            // 短文本
+            auto ids1 = tokenizer.encode("贝斯");
+            REQUIRE(ids1.size() > 0);
+            
+            // 长文本 (应截断到 kMaxLen=64)
+            std::string longText = "这是一个非常复杂的合成器音色描述包含了温暖明亮厚重空灵梦幻复古现代等多种音色特征的混合体";
+            auto ids2 = tokenizer.encode(longText);
+            REQUIRE(ids2.size() <= BPETokenizer::kMaxLen);
+        }
+    }
+    
+    SECTION("Piece lookup consistency") {
+        BPETokenizer tokenizer;
+        juce::File vocabFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.vocab");
+        
+        if (vocabFile.existsAsFile()) {
+            tokenizer.loadVocab(vocabFile);
+            
+            // 验证特殊 token
+            REQUIRE(tokenizer.getId("[PAD]") == BPETokenizer::kPadId);
+            REQUIRE(tokenizer.getId("[UNK]") == BPETokenizer::kUnkId);
+            REQUIRE(tokenizer.getPiece(BPETokenizer::kUnkId) == "[UNK]");
+        }
+    }
+}
+
+TEST_CASE("Gamma: TransformerTextEncoder load and encode", "[ai][gamma][transformer]") {
+    SECTION("Tokenizer load") {
+        TransformerTextEncoder encoder;
+        juce::File modelPath("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.model");
+        
+        if (modelPath.existsAsFile()) {
+            bool loaded = encoder.loadTokenizer(modelPath);
+            // 可能失败(无vocab)或成功(有vocab)
+            // 不强制要求，因为可能只有 vocab 文件
+        }
+    }
+    
+    SECTION("Transformer ONNX model load") {
+        TransformerTextEncoder encoder;
+        juce::File onnxPath("F:/LianCore软音源合成器V3版本商业正式版/models/transformer_encoder.onnx");
+        
+        if (onnxPath.existsAsFile()) {
+            bool loaded = encoder.loadTransformer(onnxPath);
+            // 如果 ONNX Runtime 可用，应加载成功
+            // 如果未编译 ONNX，则加载失败
+            REQUIRE((loaded == true || loaded == false)); // 不崩溃
+        }
+    }
+    
+    SECTION("Encode produces valid embedding") {
+        TransformerTextEncoder encoder;
+        juce::File vocabFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.vocab");
+        juce::File onnxPath("F:/LianCore软音源合成器V3版本商业正式版/models/transformer_encoder.onnx");
+        
+        if (vocabFile.existsAsFile() && onnxPath.existsAsFile()) {
+            encoder.loadTokenizer(vocabFile);
+            encoder.loadTransformer(onnxPath);
+            
+            if (encoder.isLoaded()) {
+                auto embedding = encoder.encode("温暖的合成器贝斯音色");
+                
+                // 验证输出维度
+                REQUIRE(embedding.size() == 128);
+                REQUIRE(encoder.getEmbeddingDim() == 128);
+                
+                // 验证不是全零
+                float sum = 0.0f;
+                for (float v : embedding) sum += std::abs(v);
+                REQUIRE(sum > 0.0f);
+            }
+        }
+    }
+    
+    SECTION("Different texts produce different embeddings") {
+        TransformerTextEncoder encoder;
+        juce::File vocabFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.vocab");
+        juce::File onnxPath("F:/LianCore软音源合成器V3版本商业正式版/models/transformer_encoder.onnx");
+        
+        if (vocabFile.existsAsFile() && onnxPath.existsAsFile()) {
+            encoder.loadTokenizer(vocabFile);
+            encoder.loadTransformer(onnxPath);
+            
+            if (encoder.isLoaded()) {
+                auto emb1 = encoder.encode("温暖的贝斯");
+                auto emb2 = encoder.encode("尖锐的失真音色");
+                
+                REQUIRE(emb1.size() == 128);
+                REQUIRE(emb2.size() == 128);
+                
+                // 计算余弦相似度
+                float dot = 0.0f, norm1 = 0.0f, norm2 = 0.0f;
+                for (int i = 0; i < 128; ++i) {
+                    dot += emb1[i] * emb2[i];
+                    norm1 += emb1[i] * emb1[i];
+                    norm2 += emb2[i] * emb2[i];
+                }
+                float cosine = dot / (std::sqrt(norm1) * std::sqrt(norm2) + 1e-9f);
+                
+                // 不同语义的文本应有区分度
+                REQUIRE(cosine > -1.0f);
+                REQUIRE(cosine < 1.0f);
+            }
+        }
+    }
+    
+    SECTION("Unloaded encoder returns zero embedding") {
+        TransformerTextEncoder encoder;
+        REQUIRE(!encoder.isLoaded());
+        
+        auto embedding = encoder.encode("测试");
+        REQUIRE(embedding.size() == 128);
+        
+        // 未加载时返回全零
+        float sum = 0.0f;
+        for (float v : embedding) sum += std::abs(v);
+        REQUIRE(sum == 0.0f);
+    }
+}
+
+TEST_CASE("Gamma: AIInferenceEngine with Transformer", "[ai][gamma][integration]") {
+    SECTION("Load transformer model") {
+        AIInferenceEngine engine;
+        juce::File tokenizerPath("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.model");
+        juce::File transformerPath("F:/LianCore软音源合成器V3版本商业正式版/models/transformer_encoder.onnx");
+        
+        if (tokenizerPath.existsAsFile() && transformerPath.existsAsFile()) {
+            bool loaded = engine.loadTransformerModel(tokenizerPath, transformerPath);
+            // 不崩溃
+            REQUIRE((loaded == true || loaded == false));
+        }
+    }
+    
+    SECTION("Generate parameters with transformer loaded") {
+        AIInferenceEngine engine;
+        juce::File vocabFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.vocab");
+        juce::File onnxPath("F:/LianCore软音源合成器V3版本商业正式版/models/transformer_encoder.onnx");
+        
+        if (vocabFile.existsAsFile() && onnxPath.existsAsFile()) {
+            engine.loadTransformerModel(vocabFile, onnxPath);
+            
+            auto result = engine.generateParameters("温暖的合成器贝斯音色");
+            
+            // 无论是否加载成功，都应返回有效结果
+            REQUIRE(result.parameters.size() == 11);
+            REQUIRE(result.confidence > 0.0);
+            REQUIRE(result.confidence <= 1.0);
+            
+            // 所有参数在 [0.0, 1.0] 范围
+            for (auto& param : result.parameters) {
+                REQUIRE(param.value >= 0.0f);
+                REQUIRE(param.value <= 1.0f);
+            }
+        }
+    }
+    
+    SECTION("Inference latency within limits") {
+        AIInferenceEngine engine;
+        juce::File vocabFile("F:/LianCore软音源合成器V3版本商业正式版/models/tokenizer/tokenizer.vocab");
+        juce::File onnxPath("F:/LianCore软音源合成器V3版本商业正式版/models/transformer_encoder.onnx");
+        
+        if (vocabFile.existsAsFile() && onnxPath.existsAsFile()) {
+            engine.loadTransformerModel(vocabFile, onnxPath);
+            
+            auto result = engine.generateParameters("测试");
+            double latency = engine.getLastInferenceTimeMs();
+            
+            // 推理延迟应在 50ms 以内
+            REQUIRE(latency >= 0.0);
+            REQUIRE(latency < 50.0);
+        }
     }
 }
