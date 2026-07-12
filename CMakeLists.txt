@@ -98,6 +98,10 @@ juce_add_plugin(LianCore
         src/params/ParameterTree.cpp
         src/params/PresetManager.cpp
         src/params/ParameterMapping.cpp
+        src/params/PreparedStatement.cpp
+
+        # 安全模块
+        src/security/AES256Encryptor.cpp
 
         # AI推理层
         src/ai/AIInferenceEngine.cpp
@@ -117,6 +121,7 @@ juce_add_plugin(LianCore
         src/params
         src/ai
         src/plugin
+        src/security
         src/utils
 
     # 链接库
