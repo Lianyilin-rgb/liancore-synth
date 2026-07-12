@@ -110,6 +110,7 @@ juce_add_plugin(LianCore
         src/ai/AIModelTrainer.cpp
         src/ai/EmotionToParameterMapper.cpp
         src/ai/OnnxModelExporter.cpp
+        src/ai/AudioTimbreAnalyzer.cpp
 
         # 插件入口
         src/plugin/PluginProcessor.cpp

@@ -34,6 +34,7 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/ai/AIInferenceEngine.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/TextTokenizer.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/TransformerTextEncoder.cpp
+    ${CMAKE_SOURCE_DIR}/src/ai/AudioTimbreAnalyzer.cpp
 )
 
 # 配置测试目标
@@ -58,7 +59,12 @@ target_link_libraries(LianCoreTests PRIVATE
     juce_core
     juce_data_structures
     juce_dsp
+    $<$<BOOL:${ONNXRUNTIME_AVAILABLE}>:onnxruntime>
 )
+
+if(ONNXRUNTIME_AVAILABLE)
+    target_include_directories(LianCoreTests PRIVATE ${ONNXRUNTIME_DIR}/include)
+endif()
 
 # UTF-8 编码支持 (MSVC)
 if(MSVC)
