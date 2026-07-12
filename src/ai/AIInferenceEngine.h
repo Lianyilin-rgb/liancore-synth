@@ -1,6 +1,7 @@
 // =============================================================================
-// LianCore - AIInferenceEngine AI推理引擎 (Alpha阶段: 接口定义+占位)
-// Beta阶段集成ONNX Runtime，实现文本→参数、波表生成、频谱分析
+// LianCore - AIInferenceEngine AI推理引擎 (Beta阶段: ONNX Runtime集成)
+// 支持文本→参数、波表生成、频谱分析
+// ONNX Runtime不可用时自动回退到规则引擎
 // =============================================================================
 #pragma once
 
@@ -8,6 +9,11 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+
+// ONNX Runtime C++ API (条件编译)
+#ifdef LIANCORE_HAS_ONNX
+#include <onnxruntime_cxx_api.h>
+#endif
 
 namespace LianCore {
 
@@ -39,14 +45,14 @@ public:
     ~AIInferenceEngine();
 
     // =========================================================================
-    // 模型管理 (Alpha阶段: 占位)
+    // 模型管理 (Beta阶段: ONNX Runtime + 规则引擎回退)
     // =========================================================================
     bool loadModel(const juce::File& onnxFile);
     void unloadModel();
-    bool isModelLoaded() const { return false; } // Alpha阶段无模型
+    bool isModelLoaded() const { return modelLoaded_; }
 
     // =========================================================================
-    // 核心推理 (Alpha阶段: 返回基于规则的音色)
+    // 核心推理
     // =========================================================================
     GenerationResult generateParameters(
         const juce::String& textPrompt,
@@ -55,7 +61,7 @@ public:
     );
 
     // =========================================================================
-    // 波表生成 (Alpha阶段: 使用WavetableBank生成)
+    // 波表生成
     // =========================================================================
     juce::AudioSampleBuffer generateWavetable(
         const juce::String& description,
@@ -64,7 +70,7 @@ public:
     );
 
     // =========================================================================
-    // 频谱分析 (Alpha阶段: 基础FFT分析)
+    // 频谱分析
     // =========================================================================
     std::vector<float> analyzeReferenceSpectrum(const juce::AudioSampleBuffer& audio);
 
@@ -74,7 +80,7 @@ public:
     std::vector<float> extractAudioEmbedding(const juce::AudioSampleBuffer& audio);
 
     // =========================================================================
-    // 参数解释生成 (Alpha阶段: 基于模板)
+    // 参数解释生成
     // =========================================================================
     juce::String generateParameterExplanation(
         const juce::String& parameterName,
@@ -86,10 +92,15 @@ public:
     // 性能
     // =========================================================================
     double getLastInferenceTimeMs() const { return lastInferenceTimeMs_; }
-    size_t getModelMemoryUsage() const { return 0; }
+    size_t getModelMemoryUsage() const { return modelMemoryUsage_; }
+
+    // =========================================================================
+    // 模型信息
+    // =========================================================================
+    juce::String getModelInfo() const;
 
 private:
-    // 关键词→参数映射表 (Alpha阶段基于规则)
+    // 关键词→参数映射表 (规则引擎回退)
     struct KeywordRule {
         juce::String keyword;
         juce::String parameterId;
@@ -100,10 +111,29 @@ private:
     // 推理缓存
     std::unordered_map<std::string, GenerationResult> resultCache_;
 
+    // ONNX Runtime会话 (Beta阶段)
+#ifdef LIANCORE_HAS_ONNX
+    std::unique_ptr<Ort::Env> ortEnv_;
+    std::unique_ptr<Ort::Session> ortSession_;
+    std::unique_ptr<Ort::SessionOptions> ortSessionOptions_;
+    std::unique_ptr<Ort::MemoryInfo> ortMemoryInfo_;
+    std::vector<const char*> ortInputNames_;
+    std::vector<const char*> ortOutputNames_;
+    std::vector<int64_t> ortInputShape_;
+#endif
+
+    bool modelLoaded_ = false;
+    size_t modelMemoryUsage_ = 0;
     double lastInferenceTimeMs_ = 0.0;
 
+    // 规则引擎
     void buildKeywordRules();
     GenerationResult applyKeywordRules(const juce::String& text) const;
+
+    // ONNX推理
+    GenerationResult runOnnxInference(const juce::String& textPrompt,
+                                       const juce::AudioSampleBuffer* audioReference,
+                                       const std::vector<juce::String>& styleTags);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AIInferenceEngine)
 };

@@ -1,15 +1,62 @@
 // =============================================================================
-// LianCore - PluginEditor VST3插件编辑器 (Alpha阶段: 基础UI)
-// Beta阶段将替换为React+WebGL UI
+// LianCore - PluginEditor VST3插件编辑器 (Beta阶段: Web UI + WebSocket)
+// 集成React前端UI, 通过WebSocket与C++核心通信
 // =============================================================================
 #pragma once
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include <unordered_map>
+#include <functional>
 
 namespace LianCore {
 
-class PluginEditor : public juce::AudioProcessorEditor {
+// =============================================================================
+// 简单WebSocket服务器 (用于与Web UI通信)
+// =============================================================================
+class UIMessageServer : private juce::Thread {
+public:
+    using MessageHandler = std::function<void(const juce::var&)>;
+
+    UIMessageServer();
+    ~UIMessageServer() override;
+
+    void start(int port = 9001);
+    void stop();
+
+    // 发送消息到Web UI
+    void sendToUI(const juce::String& type, const juce::var& payload);
+
+    // 注册消息处理
+    void onMessage(const juce::String& type, MessageHandler handler);
+
+    // 广播CPU/内存状态
+    void broadcastStatus(double cpuMs, size_t memoryBytes);
+
+private:
+    void run() override;
+
+    juce::StreamingSocket socket_;
+    bool running_ = false;
+    int port_ = 9001;
+
+    struct ClientConnection {
+        std::unique_ptr<juce::StreamingSocket> socket;
+        juce::String buffer;
+    };
+    std::vector<std::unique_ptr<ClientConnection>> clients_;
+
+    std::unordered_map<std::string, MessageHandler> handlers_;
+    juce::CriticalSection lock_;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(UIMessageServer)
+};
+
+// =============================================================================
+// PluginEditor (Beta阶段)
+// =============================================================================
+class PluginEditor : public juce::AudioProcessorEditor,
+                     private juce::Timer {
 public:
     explicit PluginEditor(PluginProcessor& processor);
     ~PluginEditor() override;
@@ -18,13 +65,24 @@ public:
     void resized() override;
 
 private:
+    void timerCallback() override;
+
     PluginProcessor& processor_;
 
-    // Alpha阶段基础UI组件
+    // Beta阶段UI元素
     juce::Label titleLabel_;
     juce::Label statusLabel_;
     juce::Label cpuLabel_;
-    juce::TextButton testButton_;
+    juce::Label wsStatusLabel_;
+    juce::TextButton openWebUIButton_;
+    juce::TextButton aiTestButton_;
+    juce::TextEditor aiPromptInput_;
+
+    // WebSocket消息服务器
+    UIMessageServer uiServer_;
+
+    // 处理Web UI消息
+    void setupMessageHandlers();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginEditor)
 };

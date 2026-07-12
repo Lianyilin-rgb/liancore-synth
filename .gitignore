@@ -36,6 +36,11 @@ libs/JUCE/
 # 用户数据
 UserData/
 
+# Web UI 依赖
+ui/node_modules/
+ui/dist/
+Resources/ui/
+
 # 临时文件
 *.tmp
 *.log

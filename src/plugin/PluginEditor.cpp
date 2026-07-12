@@ -1,82 +1,433 @@
 // =============================================================================
-// LianCore - PluginEditor 实现
+// LianCore - PluginEditor 实现 (Beta阶段: Web UI + WebSocket通信)
 // =============================================================================
 #include "PluginEditor.h"
+#include "../ai/AIInferenceEngine.h"
 
 namespace LianCore {
 
+// 前向声明
+static juce::String parseWebSocketMessage(juce::String& buffer);
+
+// =============================================================================
+// UIMessageServer 实现
+// =============================================================================
+UIMessageServer::UIMessageServer()
+    : juce::Thread("LianCore-UI-Server") {
+}
+
+UIMessageServer::~UIMessageServer() {
+    stop();
+}
+
+void UIMessageServer::start(int port) {
+    if (running_) return;
+    port_ = port;
+
+    // 创建TCP服务器socket
+    if (socket_.createListener(port_)) {
+        running_ = true;
+        startThread(juce::Thread::Priority::background);
+        DBG("[LianCore] WebSocket服务器启动于端口 " << port_);
+    } else {
+        DBG("[LianCore] WebSocket服务器启动失败");
+    }
+}
+
+void UIMessageServer::stop() {
+    running_ = false;
+    socket_.close();
+    stopThread(1000);
+    clients_.clear();
+}
+
+void UIMessageServer::run() {
+    while (running_ && !threadShouldExit()) {
+        // 接受新连接
+        if (auto* newSocket = socket_.waitForNextSocketConnecting(100)) {
+            DBG("[LianCore] Web UI 已连接");
+            auto client = std::make_unique<ClientConnection>();
+            client->socket.reset(newSocket);
+            clients_.push_back(std::move(client));
+        }
+
+        // 处理客户端消息
+        for (auto it = clients_.begin(); it != clients_.end();) {
+            auto& client = *it;
+            char buffer[4096];
+            int bytesRead = client->socket->read(buffer, sizeof(buffer) - 1, false);
+
+            if (bytesRead > 0) {
+                buffer[bytesRead] = '\0';
+                client->buffer += juce::String::fromUTF8(buffer, bytesRead);
+
+                // 处理WebSocket帧
+                while (true) {
+                    auto msg = parseWebSocketMessage(client->buffer);
+                    if (msg.isEmpty()) break;
+
+                    // 解析JSON消息
+                    auto json = juce::JSON::parse(msg);
+                    if (json.isObject()) {
+                        auto type = json.getProperty("type", "");
+                        auto payload = json.getProperty("payload", juce::var());
+
+                        juce::ScopedLock sl(lock_);
+                        auto handlerIt = handlers_.find(type.toString().toStdString());
+                        if (handlerIt != handlers_.end()) {
+                            handlerIt->second(payload);
+                        }
+                    }
+                }
+                ++it;
+            } else if (bytesRead < 0 || !client->socket->isConnected()) {
+                it = clients_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+}
+
+void UIMessageServer::sendToUI(const juce::String& type, const juce::var& payload) {
+    juce::DynamicObject msg;
+    msg.setProperty("type", type);
+    msg.setProperty("payload", payload);
+    msg.setProperty("timestamp", juce::Time::getCurrentTime().toMilliseconds());
+
+    auto jsonStr = juce::JSON::toString(msg);
+
+    // WebSocket帧封装: text frame, FIN=1, opcode=1, mask=0(server→client)
+    juce::MemoryBlock frame;
+    frame.append("\x81", 1); // FIN + Text opcode
+    if (jsonStr.length() < 126) {
+        frame.append(juce::String::charToString(static_cast<char>(jsonStr.length())), 1);
+    } else if (jsonStr.length() < 65536) {
+        frame.append("\x7E", 1);
+        uint16_t len = static_cast<uint16_t>(jsonStr.length());
+        len = juce::ByteOrder::swapIfBigEndian(len);
+        frame.append(&len, 2);
+    }
+    frame.append(jsonStr.toRawUTF8(), jsonStr.getNumBytesAsUTF8());
+
+    for (auto& client : clients_) {
+        if (client->socket && client->socket->isConnected()) {
+            client->socket->write(frame.getData(), static_cast<int>(frame.getSize()));
+        }
+    }
+}
+
+void UIMessageServer::onMessage(const juce::String& type, MessageHandler handler) {
+    juce::ScopedLock sl(lock_);
+    handlers_[type.toStdString()] = std::move(handler);
+}
+
+void UIMessageServer::broadcastStatus(double cpuMs, size_t memoryBytes) {
+    juce::DynamicObject status;
+    status.setProperty("usage", cpuMs);
+    status.setProperty("mb", static_cast<double>(memoryBytes) / 1024.0 / 1024.0);
+    sendToUI("cpu_usage", status);
+}
+
+// 简单WebSocket帧解析 (server端, 客户端发送的是masked帧)
+static juce::String parseWebSocketMessage(juce::String& buffer) {
+    auto utf8 = buffer.toUTF8();
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(utf8.getAddress());
+    size_t size = utf8.size();
+
+    if (size < 2) return {};
+
+    uint8_t opcode = data[0] & 0x0F;
+    bool masked = (data[1] & 0x80) != 0;
+    uint64_t payloadLen = data[1] & 0x7F;
+
+    size_t headerSize = 2;
+    if (payloadLen == 126) {
+        if (size < 4) return {};
+        payloadLen = (static_cast<uint16_t>(data[2]) << 8) | data[3];
+        headerSize = 4;
+    } else if (payloadLen == 127) {
+        if (size < 10) return {};
+        payloadLen = 0;
+        for (int i = 0; i < 8; ++i) {
+            payloadLen = (payloadLen << 8) | data[2 + i];
+        }
+        headerSize = 10;
+    }
+
+    size_t maskOffset = headerSize;
+    if (masked) headerSize += 4;
+    if (size < headerSize + payloadLen) return {};
+
+    // 解码
+    juce::MemoryBlock decoded(static_cast<size_t>(payloadLen));
+    if (masked) {
+        const uint8_t* mask = data + maskOffset;
+        const uint8_t* payload = data + headerSize;
+        for (uint64_t i = 0; i < payloadLen; ++i) {
+            decoded[i] = payload[i] ^ mask[i % 4];
+        }
+    } else {
+        decoded.copyFrom(data + headerSize, static_cast<size_t>(payloadLen));
+    }
+
+    // 移除已处理的数据
+    buffer = buffer.substring(static_cast<int>(headerSize + payloadLen));
+
+    if (opcode == 0x1) { // Text frame
+        return juce::String::fromUTF8(static_cast<const char*>(decoded.getData()), static_cast<int>(payloadLen));
+    }
+    return {};
+}
+
+// =============================================================================
+// PluginEditor 实现
+// =============================================================================
 PluginEditor::PluginEditor(PluginProcessor& processor)
     : AudioProcessorEditor(&processor)
-    , processor_(processor)
-{
-    // 设置窗口大小
-    setSize(600, 400);
+    , processor_(processor) {
+    // 设置窗口大小 (Beta阶段扩大窗口)
+    setSize(800, 560);
 
     // 标题
-    titleLabel_.setText("LianCore V3 Alpha - 商业AI合成器软音源", juce::dontSendNotification);
+    titleLabel_.setText("LianCore V3 Beta - AI合成器软音源", juce::dontSendNotification);
     titleLabel_.setFont(juce::Font(16.0f, juce::Font::bold));
     titleLabel_.setJustificationType(juce::Justification::centred);
+    titleLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF00cec9));
     addAndMakeVisible(titleLabel_);
 
     // 状态
-    statusLabel_.setText("节点: 波表振荡器 → 滤波器 → 输出", juce::dontSendNotification);
-    statusLabel_.setFont(juce::Font(12.0f));
+    statusLabel_.setText("节点: 全合成引擎 | AI推理: ONNX Runtime | Web UI: 就绪", juce::dontSendNotification);
+    statusLabel_.setFont(juce::Font(11.0f));
     statusLabel_.setJustificationType(juce::Justification::centred);
+    statusLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF8888a0));
     addAndMakeVisible(statusLabel_);
 
     // CPU使用率
-    cpuLabel_.setText("CPU: 0.0ms", juce::dontSendNotification);
+    cpuLabel_.setText("CPU: 0.0ms | 内存: 0MB", juce::dontSendNotification);
     cpuLabel_.setFont(juce::Font(10.0f));
+    cpuLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF555568));
     addAndMakeVisible(cpuLabel_);
 
-    // 测试按钮
-    testButton_.setButtonText("测试音频");
-    testButton_.onClick = [this]() {
+    // WebSocket状态
+    wsStatusLabel_.setText("WebSocket: 启动中...", juce::dontSendNotification);
+    wsStatusLabel_.setFont(juce::Font(10.0f));
+    wsStatusLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF2ecc71));
+    addAndMakeVisible(wsStatusLabel_);
+
+    // 打开Web UI按钮
+    openWebUIButton_.setButtonText("打开 Web UI");
+    openWebUIButton_.onClick = [this]() {
+        juce::URL("http://localhost:5173").launchInDefaultBrowser();
+    };
+    addAndMakeVisible(openWebUIButton_);
+
+    // AI测试按钮
+    aiTestButton_.setButtonText("AI 测试生成");
+    aiTestButton_.onClick = [this]() {
+        auto prompt = aiPromptInput_.getText();
+        if (prompt.isEmpty()) {
+            prompt = "明亮的电子合成器主音";
+        }
+
+        auto& ai = processor_.getAIEngine();
+        auto result = ai.generateParameters(prompt);
+        juce::String info = "AI生成: " + result.presetName + "\n";
+        info += "置信度: " + juce::String(result.confidence * 100, 0) + "%\n";
+        info += "参数数量: " + juce::String(result.parameters.size()) + "\n";
+        info += "模型: " + ai.getModelInfo() + "\n";
+        info += "推理时间: " + juce::String(ai.getLastInferenceTimeMs(), 2) + "ms";
+
         juce::AlertWindow::showMessageBoxAsync(
             juce::MessageBoxIconType::InfoIcon,
-            "LianCore Alpha",
-            "音频图引擎正常运行中\n节点数: " + juce::String(processor_.getAudioGraph().getNodeCount()),
+            "AI 推理结果",
+            info,
             "确定"
         );
     };
-    addAndMakeVisible(testButton_);
+    addAndMakeVisible(aiTestButton_);
 
-    // 启动定时器更新CPU显示
+    // AI提示输入
+    aiPromptInput_.setMultiLine(false);
+    aiPromptInput_.setTextToShowWhenEmpty("描述声音...", juce::Colour(0xFF555568));
+    aiPromptInput_.setFont(juce::Font(13.0f));
+    aiPromptInput_.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF1e1e2a));
+    aiPromptInput_.setColour(juce::TextEditor::textColourId, juce::Colour(0xFFe0e0e0));
+    aiPromptInput_.setColour(juce::TextEditor::outlineColourId, juce::Colour(0xFF2a2a3a));
+    addAndMakeVisible(aiPromptInput_);
+
+    // 设置WebSocket消息处理
+    setupMessageHandlers();
+
+    // 启动WebSocket服务器
+    uiServer_.start(9001);
+    wsStatusLabel_.setText("WebSocket: 端口9001 | 等待Web UI连接...", juce::dontSendNotification);
+
+    // 启动定时器
     startTimerHz(10);
 }
 
 PluginEditor::~PluginEditor() {
     stopTimer();
+    uiServer_.stop();
 }
 
 void PluginEditor::paint(juce::Graphics& g) {
-    // 背景
-    g.fillAll(juce::Colour(0xFF1a1a2e));
+    // 背景 - 深色极简风格
+    g.fillAll(juce::Colour(0xFF0a0a0f));
 
-    // 分隔线
-    g.setColour(juce::Colour(0xFFe94560));
-    g.drawLine(50, 80, getWidth() - 50, 80, 2.0f);
+    // 顶部装饰线
+    g.setColour(juce::Colour(0xFF6c5ce7));
+    g.drawLine(30, 65, getWidth() - 30, 65, 1.0f);
 
-    // 更新CPU显示
+    // 底部装饰线
+    g.setColour(juce::Colour(0xFF2a2a3a));
+    g.drawLine(30, getHeight() - 35, getWidth() - 30, getHeight() - 35, 1.0f);
+
+    // 更新CPU/内存显示
     cpuLabel_.setText(
-        juce::String::formatted("CPU: %.2fms | 内存: %dKB",
+        juce::String::formatted("CPU: %.2fms | 内存: %.1fMB",
             processor_.getCpuUsage(),
-            static_cast<int>(processor_.getMemoryUsage() / 1024)),
+            processor_.getMemoryUsage() / 1024.0 / 1024.0),
         juce::dontSendNotification
     );
+
+    // 广播状态到Web UI
+    uiServer_.broadcastStatus(processor_.getCpuUsage(), processor_.getMemoryUsage());
 }
 
 void PluginEditor::resized() {
     auto area = getLocalBounds().reduced(20);
 
-    titleLabel_.setBounds(area.removeFromTop(40));
-    area.removeFromTop(20);
-    statusLabel_.setBounds(area.removeFromTop(25));
-    area.removeFromTop(20);
+    // 标题
+    titleLabel_.setBounds(area.removeFromTop(35));
+    area.removeFromTop(10);
 
-    testButton_.setBounds(area.removeFromTop(40).withSizeKeepingCentre(120, 40));
+    // 状态行
+    statusLabel_.setBounds(area.removeFromTop(20));
+    area.removeFromTop(10);
 
-    cpuLabel_.setBounds(10, getHeight() - 30, 200, 20);
+    // AI输入区域
+    auto aiRow = area.removeFromTop(35);
+    aiPromptInput_.setBounds(aiRow.removeFromLeft(aiRow.getWidth() - 120));
+    aiTestButton_.setBounds(aiRow.withWidth(120).reduced(4, 2));
+
+    area.removeFromTop(10);
+
+    // 按钮行
+    auto buttonRow = area.removeFromTop(35);
+    openWebUIButton_.setBounds(buttonRow.withWidth(140).reduced(4, 2));
+
+    area.removeFromTop(10);
+
+    // WebSocket状态
+    wsStatusLabel_.setBounds(area.removeFromTop(20));
+
+    // CPU状态
+    cpuLabel_.setBounds(10, getHeight() - 30, 300, 20);
+}
+
+void PluginEditor::timerCallback() {
+    // 定时更新UI状态
+    repaint();
+}
+
+void PluginEditor::setupMessageHandlers() {
+    // AI生成请求
+    uiServer_.onMessage("ai_generate_request", [this](const juce::var& payload) {
+        juce::String prompt = payload.getProperty("prompt", "");
+
+        // 发送进度
+        uiServer_.sendToUI("ai_generate_progress", juce::var());
+
+        // 执行AI推理
+        auto& ai = processor_.getAIEngine();
+        auto result = ai.generateParameters(prompt);
+
+        // 构建结果
+        juce::DynamicObject resultObj;
+        resultObj.setProperty("presetName", result.presetName);
+        resultObj.setProperty("confidence", result.confidence);
+
+        juce::Array<juce::var> params;
+        for (const auto& param : result.parameters) {
+            juce::DynamicObject p;
+            p.setProperty("parameterId", param.parameterId);
+            p.setProperty("value", param.value);
+            p.setProperty("explanation", param.explanation);
+            params.add(p);
+        }
+        resultObj.setProperty("parameters", params);
+
+        uiServer_.sendToUI("ai_generate_result", resultObj);
+    });
+
+    // 预设列表请求
+    uiServer_.onMessage("preset_list", [this](const juce::var&) {
+        auto& presetManager = processor_.getPresetManager();
+        auto presets = presetManager.getAllPresets();
+
+        juce::Array<juce::var> presetList;
+        for (const auto& preset : presets) {
+            juce::DynamicObject p;
+            p.setProperty("id", preset.id);
+            p.setProperty("name", preset.name);
+            p.setProperty("category", preset.category);
+
+            juce::Array<juce::var> tags;
+            for (const auto& tag : preset.tags) {
+                tags.add(tag);
+            }
+            p.setProperty("tags", tags);
+            p.setProperty("rating", preset.rating);
+            presetList.add(p);
+        }
+
+        juce::DynamicObject resp;
+        resp.setProperty("presets", presetList);
+        uiServer_.sendToUI("preset_list", resp);
+    });
+
+    // 预设加载请求
+    uiServer_.onMessage("preset_load", [this](const juce::var& payload) {
+        int presetId = payload.getProperty("presetId", 0);
+        auto& presetManager = processor_.getPresetManager();
+        if (presetManager.loadPreset(presetId)) {
+            uiServer_.sendToUI("preset_load", juce::var("ok"));
+        }
+    });
+
+    // 预设保存请求
+    uiServer_.onMessage("preset_save", [this](const juce::var& payload) {
+        juce::String name = payload.getProperty("name", "");
+        juce::String category = payload.getProperty("category", "");
+        // 保存当前状态为预设
+        auto& presetManager = processor_.getPresetManager();
+        presetManager.savePreset(name, category);
+        uiServer_.sendToUI("preset_list", juce::var());
+    });
+
+    // 参数变更
+    uiServer_.onMessage("param_change", [this](const juce::var& payload) {
+        juce::String paramId = payload.getProperty("parameterId", "");
+        float value = payload.getProperty("value", 0.0f);
+        auto& params = processor_.getParameterTree();
+        params.setParameter(paramId, value);
+    });
+
+    // 批量参数变更
+    uiServer_.onMessage("param_batch", [this](const juce::var& payload) {
+        auto params = payload.getProperty("parameters", juce::var());
+        if (params.isArray()) {
+            auto& paramTree = processor_.getParameterTree();
+            for (const auto& p : *params.getArray()) {
+                paramTree.setParameter(
+                    p.getProperty("parameterId", ""),
+                    p.getProperty("value", 0.0f)
+                );
+            }
+        }
+    });
 }
 
 } // namespace LianCore

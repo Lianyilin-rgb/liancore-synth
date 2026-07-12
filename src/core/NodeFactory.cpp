@@ -3,10 +3,16 @@
 // =============================================================================
 #include "NodeFactory.h"
 
-// 合成引擎节点
+// 合成引擎节点 (Alpha - 已完成)
 #include "WavetableOscillator.h"
 #include "VirtualAnalogOscillator.h"
 #include "NoiseGenerator.h"
+
+// 合成引擎节点 (Beta - 新增)
+#include "SpectralOscillator.h"
+#include "GranularPlayer.h"
+#include "WaveguideResonator.h"
+#include "MultiSampler.h"  // 包含 MultiSampler, DrumSlicer, StepSequencer
 
 // 信号处理节点
 #include "FilterProcessor.h"
@@ -69,25 +75,45 @@ std::unique_ptr<AudioNode> NodeFactory::createNode(NodeType type, const juce::St
             break;
 
         // =====================================================================
-        // Beta/Release 阶段实现
+        // 合成引擎 (Beta阶段实现)
         // =====================================================================
         case NodeType::SpectralOscillator:
+            node = std::make_unique<SpectralOscillator>(nodeName);
+            break;
+
         case NodeType::GranularPlayer:
+            node = std::make_unique<GranularPlayer>(nodeName);
+            break;
+
         case NodeType::WaveguideResonator:
+            node = std::make_unique<WaveguideResonator>(nodeName);
+            break;
+
         case NodeType::MultiSampler:
+            node = std::make_unique<MultiSampler>(nodeName);
+            break;
+
         case NodeType::DrumSlicer:
+            node = std::make_unique<DrumSlicer>(nodeName);
+            break;
+
+        case NodeType::StepSequencer:
+            node = std::make_unique<StepSequencer>(nodeName);
+            break;
+
+        // =====================================================================
+        // 待实现 (Release阶段)
+        // =====================================================================
         case NodeType::Distortion:
         case NodeType::Delay:
         case NodeType::Reverb:
         case NodeType::Compressor:
         case NodeType::EQ:
         case NodeType::MacroControl:
-        case NodeType::StepSequencer:
         case NodeType::Splitter:
         case NodeType::AudioInput:
         default:
             // 未实现的节点类型创建占位节点
-            jassertfalse; // 开发中, 不应在生产代码中触发
             node = std::make_unique<PlaceholderNode>(type, nodeName);
             break;
     }
@@ -146,8 +172,18 @@ void NodeFactory::configureDefaultPorts(AudioNode* node) {
         case NodeType::WavetableOscillator:
         case NodeType::VirtualAnalogOscillator:
         case NodeType::NoiseGenerator:
-            // 振荡器: 无音频输入, 1个音频输出
+        case NodeType::SpectralOscillator:
+        case NodeType::GranularPlayer:
+        case NodeType::WaveguideResonator:
+        case NodeType::MultiSampler:
+        case NodeType::DrumSlicer:
+            // 振荡器/合成器: 无音频输入, 1个音频输出
             node->addOutputPort("音频输出", audioDesc);
+            break;
+
+        case NodeType::StepSequencer:
+            // 步进音序器: 无音频输入, 1个控制输出
+            node->addOutputPort("序列输出", controlDesc);
             break;
 
         case NodeType::Filter:

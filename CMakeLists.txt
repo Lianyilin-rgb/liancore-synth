@@ -41,6 +41,11 @@ endif()
 add_subdirectory(${JUCE_DIR})
 
 # =============================================================================
+# ONNX Runtime 集成 (Beta阶段)
+# =============================================================================
+include(cmake/FindONNXRuntime.cmake)
+
+# =============================================================================
 # 插件配置
 # =============================================================================
 juce_add_plugin(LianCore
@@ -70,6 +75,13 @@ juce_add_plugin(LianCore
         src/synthesis/VirtualAnalogOscillator.cpp
         src/synthesis/NoiseGenerator.cpp
         src/synthesis/FilterProcessor.cpp
+        # Beta 阶段新增合成引擎
+        src/synthesis/SpectralOscillator.cpp
+        src/synthesis/GranularPlayer.cpp
+        src/synthesis/WaveguideResonator.cpp
+        src/synthesis/MultiSampler.cpp
+        src/synthesis/DrumSlicer.cpp
+        src/synthesis/StepSequencer.cpp
 
         # 调制系统
         src/modulation/EnvelopeGenerator.cpp
@@ -101,13 +113,13 @@ juce_add_plugin(LianCore
 
     # 链接库
     LINK_LIBRARIES
-        # ONNX Runtime (Alpha阶段预留，Beta阶段启用)
-        # onnxruntime
+        # ONNX Runtime (Beta阶段集成)
+        $<$<BOOL:${ONNXRUNTIME_AVAILABLE}>:onnxruntime>
 
     # 编译器定义
     COMPILE_DEFINITIONS
         LIANCORE_VERSION=\"${PROJECT_VERSION}\"
-        LIANCORE_ALPHA=1
+        LIANCORE_BETA=1
         LIANCORE_MAX_WAVETABLE_FRAMES=256
         LIANCORE_WAVETABLE_FRAME_SIZE=2048
         LIANCORE_MAX_MODULATION_ROUTES=32
