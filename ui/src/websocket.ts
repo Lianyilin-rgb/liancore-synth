@@ -14,6 +14,9 @@ export type MessageType =
   | 'preset_save'
   | 'cpu_usage'
   | 'memory_usage'
+  | 'emotion'
+  | 'emotion_applied'
+  | 'generate'
   | 'error'
   | 'heartbeat';
 
@@ -148,6 +151,26 @@ class LianCoreWebSocket {
 
   savePreset(name: string, category: string): void {
     this.send('preset_save', { name, category });
+  }
+
+  // 情感滑块实时发送 (Beta Week 6)
+  sendEmotion(warmth: number, energy: number, tension: number): void {
+    this.send('emotion', { warmth, energy, tension });
+  }
+
+  // 联合生成请求 (文本 + 情感) (Beta Week 6)
+  requestGenerationWithEmotion(
+    text: string,
+    warmth: number,
+    energy: number,
+    tension: number,
+    styleTags: string[] = []
+  ): void {
+    this.send('generate', {
+      text,
+      emotion: { warmth, energy, tension },
+      styleTags,
+    });
   }
 
   private dispatch(msg: LianCoreMessage): void {

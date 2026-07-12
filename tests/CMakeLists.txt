@@ -11,8 +11,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-# 收集所有测试源文件
-file(GLOB TEST_SOURCES
+# 收集所有测试源文件 (递归搜索子目录)
+file(GLOB_RECURSE TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/tests/*.cpp
 )
 
@@ -45,6 +45,7 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/ai/AIInferenceEngine.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/TextTokenizer.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/ParameterSpaceMapper.cpp
+    ${CMAKE_SOURCE_DIR}/src/ai/EmotionToParameterMapper.cpp
 )
 
 # 配置测试目标

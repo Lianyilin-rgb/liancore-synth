@@ -108,6 +108,7 @@ juce_add_plugin(LianCore
         src/ai/TextTokenizer.cpp
         src/ai/ParameterSpaceMapper.cpp
         src/ai/AIModelTrainer.cpp
+        src/ai/EmotionToParameterMapper.cpp
 
         # 插件入口
         src/plugin/PluginProcessor.cpp

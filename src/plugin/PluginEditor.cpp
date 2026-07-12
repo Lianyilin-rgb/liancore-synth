@@ -3,6 +3,7 @@
 // =============================================================================
 #include "PluginEditor.h"
 #include "../ai/AIInferenceEngine.h"
+#include "../ai/EmotionToParameterMapper.h"
 
 namespace LianCore {
 
@@ -427,6 +428,81 @@ void PluginEditor::setupMessageHandlers() {
                 );
             }
         }
+    });
+
+    // 情感滑块实时映射 (Beta Week 6)
+    // 直接调用 EmotionToParameterMapper 更新参数，无需 AI 推理
+    uiServer_.onMessage("emotion", [this](const juce::var& payload) {
+        float warmth  = static_cast<float>(payload.getProperty("warmth", 0.5));
+        float energy  = static_cast<float>(payload.getProperty("energy", 0.5));
+        float tension = static_cast<float>(payload.getProperty("tension", 0.5));
+
+        // 使用直接映射规则 (快速路径, < 1ms)
+        auto emotionParams = EmotionToParameterMapper::mapEmotionDirect(warmth, energy, tension);
+
+        // 应用参数到合成器
+        auto& paramTree = processor_.getParameterTree();
+        for (const auto& mapping : emotionParams) {
+            paramTree.setParameter(mapping.parameterId, mapping.value);
+        }
+
+        // 回传确认
+        juce::DynamicObject ack;
+        ack.setProperty("warmth", warmth);
+        ack.setProperty("energy", energy);
+        ack.setProperty("tension", tension);
+        ack.setProperty("paramCount", static_cast<int>(emotionParams.size()));
+        uiServer_.sendToUI("emotion_applied", ack);
+    });
+
+    // 联合生成请求 (文本 + 情感) (Beta Week 6)
+    // 当 generate 消息中包含 emotion 数据时调用 generateParametersWithEmotion
+    uiServer_.onMessage("generate", [this](const juce::var& payload) {
+        juce::String text = payload.getProperty("text", "");
+        auto emotionObj = payload.getProperty("emotion", juce::var());
+        auto styleTagsVar = payload.getProperty("styleTags", juce::var());
+
+        std::vector<juce::String> styleTags;
+        if (styleTagsVar.isArray()) {
+            for (const auto& tag : *styleTagsVar.getArray()) {
+                styleTags.push_back(tag.toString());
+            }
+        }
+
+        // 发送进度
+        uiServer_.sendToUI("ai_generate_progress", juce::var());
+
+        auto& ai = processor_.getAIEngine();
+        AIInferenceEngine::GenerationResult result;
+
+        if (emotionObj.isObject()) {
+            // 包含情感数据 → 使用情感增强推理
+            float warmth  = static_cast<float>(emotionObj.getProperty("warmth", 0.5));
+            float energy  = static_cast<float>(emotionObj.getProperty("energy", 0.5));
+            float tension = static_cast<float>(emotionObj.getProperty("tension", 0.5));
+
+            result = ai.generateParametersWithEmotion(text, warmth, energy, tension, styleTags);
+        } else {
+            // 纯文本推理
+            result = ai.generateParameters(text, nullptr, styleTags);
+        }
+
+        // 构建结果
+        juce::DynamicObject resultObj;
+        resultObj.setProperty("presetName", result.presetName);
+        resultObj.setProperty("confidence", result.confidence);
+
+        juce::Array<juce::var> params;
+        for (const auto& param : result.parameters) {
+            juce::DynamicObject p;
+            p.setProperty("parameterId", param.parameterId);
+            p.setProperty("value", param.value);
+            p.setProperty("explanation", param.explanation);
+            params.add(p);
+        }
+        resultObj.setProperty("parameters", params);
+
+        uiServer_.sendToUI("ai_generate_result", resultObj);
     });
 }
 

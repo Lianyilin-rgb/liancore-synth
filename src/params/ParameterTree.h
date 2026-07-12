@@ -53,6 +53,7 @@ public:
     // =========================================================================
     float getParameterValue(const juce::String& id) const;
     void setParameterValue(const juce::String& id, float value);
+    void setParameter(const juce::String& id, float value) { setParameterValue(id, value); }
     juce::RangedAudioParameter* getParameter(const juce::String& id);
 
     // 获取所有参数ID

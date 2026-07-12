@@ -9,6 +9,7 @@
 #include "../modulation/ModulationMatrix.h"
 #include "../params/ParameterTree.h"
 #include "../params/PresetManager.h"
+#include "../ai/AIInferenceEngine.h"
 
 namespace LianCore {
 
@@ -50,6 +51,7 @@ public:
     ModulationMatrix& getModulationMatrix() { return modulationMatrix_; }
     LianCoreParameterTree& getParameterTree() { return parameterTree_; }
     PresetManager& getPresetManager() { return presetManager_; }
+    AIInferenceEngine& getAIEngine() { return aiEngine_; }
 
     // 初始化默认音频图 (Alpha阶段: 基础信号链)
     void initializeDefaultGraph();
@@ -64,6 +66,7 @@ private:
     ModulationMatrix modulationMatrix_;
     LianCoreParameterTree parameterTree_;
     PresetManager presetManager_;
+    AIInferenceEngine aiEngine_;
 
     // 合成链节点ID
     NodeId oscNodeId_;

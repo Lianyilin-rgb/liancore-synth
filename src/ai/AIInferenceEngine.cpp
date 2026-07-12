@@ -4,6 +4,7 @@
 #include "AIInferenceEngine.h"
 #include "../params/ParameterTree.h"
 #include "../utils/AudioUtils.h"
+#include <unordered_set>
 
 namespace LianCore {
 
@@ -218,6 +219,75 @@ AIInferenceEngine::GenerationResult AIInferenceEngine::generateParameters(
         result.explanationEmbeddings = spectrum;
         result.confidence = AudioUtils::clamp(result.confidence + 0.1f, 0.0f, 1.0f);
     }
+
+    lastInferenceTimeMs_ = juce::Time::getMillisecondCounterHiRes() - startTime;
+    return result;
+}
+
+// =============================================================================
+// 情感增强推理 (Beta Week 6)
+// 文本推理结果 (70%) + 情感偏置 (30%) 融合
+// =============================================================================
+AIInferenceEngine::GenerationResult AIInferenceEngine::generateParametersWithEmotion(
+    const juce::String& textPrompt,
+    float warmth, float energy, float tension,
+    const std::vector<juce::String>& styleTags) {
+
+    auto startTime = juce::Time::getMillisecondCounterHiRes();
+
+    // 1. 先执行文本推理
+    GenerationResult textResult = generateParameters(textPrompt, nullptr, styleTags);
+
+    // 2. 获取情感偏置参数 (直接映射规则, 快速路径)
+    auto emotionParams = emotionMapper_.mapEmotionDirect(warmth, energy, tension);
+
+    // 3. 融合: 文本参数权重 0.7, 情感偏置权重 0.3
+    // 构建文本参数查找表
+    std::unordered_map<juce::String, float> textParamMap;
+    for (const auto& p : textResult.parameters) {
+        textParamMap[p.parameterId] = p.value;
+    }
+
+    // 收集所有参数ID
+    std::unordered_set<juce::String> allParamIds;
+    for (const auto& p : textResult.parameters)  allParamIds.insert(p.parameterId);
+    for (const auto& p : emotionParams)          allParamIds.insert(p.parameterId);
+
+    std::vector<ParameterMapping> fusedParams;
+    for (const auto& id : allParamIds) {
+        float textVal = 0.5f;
+        float emotionVal = 0.5f;
+
+        auto textIt = textParamMap.find(id);
+        if (textIt != textParamMap.end()) textVal = textIt->second;
+
+        for (const auto& ep : emotionParams) {
+            if (ep.parameterId == id) {
+                emotionVal = ep.value;
+                break;
+            }
+        }
+
+        // 融合权重: 文本 0.7 + 情感 0.3
+        float fusedValue = textVal * 0.7f + emotionVal * 0.3f;
+
+        ParameterMapping mapping;
+        mapping.parameterId = id;
+        mapping.value = juce::jlimit(0.0f, 1.0f, fusedValue);
+        mapping.explanation = juce::String::formatted(
+            "AI融合: 文本(%.2f)*0.7 + 情感(W=%.2f,E=%.2f,T=%.2f)*0.3",
+            textVal, warmth, energy, tension);
+        fusedParams.push_back(mapping);
+    }
+
+    // 4. 构建结果
+    GenerationResult result;
+    result.parameters = fusedParams;
+    result.presetName = textResult.presetName + juce::String::formatted(
+        "_情感[W%.0fE%.0fT%.0f]", warmth * 100, energy * 100, tension * 100);
+    result.confidence = textResult.confidence * 0.85f; // 融合后置信度略降
+    result.explanationEmbeddings = textResult.explanationEmbeddings;
+    result.wavetableData = textResult.wavetableData;
 
     lastInferenceTimeMs_ = juce::Time::getMillisecondCounterHiRes() - startTime;
     return result;

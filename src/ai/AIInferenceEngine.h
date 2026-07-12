@@ -6,6 +6,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "EmotionToParameterMapper.h"
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -59,6 +60,19 @@ public:
         const juce::AudioSampleBuffer* audioReference = nullptr,
         const std::vector<juce::String>& styleTags = {}
     );
+
+    // =========================================================================
+    // 情感增强推理 (Beta Week 6)
+    // 文本推理结果 + 情感偏置融合 (权重 0.7:0.3)
+    // =========================================================================
+    GenerationResult generateParametersWithEmotion(
+        const juce::String& textPrompt,
+        float warmth, float energy, float tension,
+        const std::vector<juce::String>& styleTags = {}
+    );
+
+    // 获取情感映射器 (供外部使用)
+    EmotionToParameterMapper& getEmotionMapper() { return emotionMapper_; }
 
     // =========================================================================
     // 波表生成
@@ -125,6 +139,9 @@ private:
     bool modelLoaded_ = false;
     size_t modelMemoryUsage_ = 0;
     double lastInferenceTimeMs_ = 0.0;
+
+    // 情感映射器 (Beta Week 6)
+    EmotionToParameterMapper emotionMapper_;
 
     // 规则引擎
     void buildKeywordRules();

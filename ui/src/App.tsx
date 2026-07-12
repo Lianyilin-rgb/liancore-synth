@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [memUsage, setMemUsage] = useState(0);
   const [activeStyleTags, setActiveStyleTags] = useState<string[]>([]);
   const [emotions, setEmotions] = useState({ warmth: 0.5, energy: 0.5, tension: 0.5 });
+  const [emotionApplied, setEmotionApplied] = useState<{ paramCount: number } | null>(null);
 
   const categories = ['全部', '贝斯', '主音', '铺底', '打击', '键盘', '弦乐', '管乐', '特效', 'AI生成'];
 
@@ -53,6 +54,13 @@ const App: React.FC = () => {
       liancore.on('memory_usage', (msg) => {
         setMemUsage(msg.payload.mb as number);
       }),
+      liancore.on('emotion_applied', (msg) => {
+        setEmotionApplied({
+          paramCount: msg.payload.paramCount as number,
+        });
+        // 3秒后清除确认提示
+        setTimeout(() => setEmotionApplied(null), 3000);
+      }),
     ];
 
     // 请求初始数据
@@ -79,8 +87,19 @@ const App: React.FC = () => {
     if (!aiPrompt.trim() || generating) return;
     setGenerating(true);
     setGenerationResult(null);
-    liancore.requestGeneration(aiPrompt.trim(), activeStyleTags);
-  }, [aiPrompt, generating, activeStyleTags]);
+    // 情感滑块非默认时 → 联合生成
+    if (emotions.warmth !== 0.5 || emotions.energy !== 0.5 || emotions.tension !== 0.5) {
+      liancore.requestGenerationWithEmotion(
+        aiPrompt.trim(),
+        emotions.warmth,
+        emotions.energy,
+        emotions.tension,
+        activeStyleTags
+      );
+    } else {
+      liancore.requestGeneration(aiPrompt.trim(), activeStyleTags);
+    }
+  }, [aiPrompt, generating, activeStyleTags, emotions]);
 
   // 键盘快捷键
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -91,12 +110,14 @@ const App: React.FC = () => {
   }, [handleGenerate]);
 
   // =========================================================================
-  // 情感滑块变更
+  // 情感滑块变更 (实时 WebSocket 发送)
   // =========================================================================
   const handleEmotionChange = useCallback((name: string, value: number) => {
-    setEmotions(prev => ({ ...prev, [name]: value }));
-    liancore.setParameter(`emotion_${name}`, value);
-  }, []);
+    const newEmotions = { ...emotions, [name]: value };
+    setEmotions(newEmotions);
+    // 实时发送情感向量到合成器引擎 (Beta Week 6)
+    liancore.sendEmotion(newEmotions.warmth, newEmotions.energy, newEmotions.tension);
+  }, [emotions]);
 
   // =========================================================================
   // 预设加载
@@ -214,6 +235,11 @@ const App: React.FC = () => {
       {/* 情感滑块 */}
       <div className="emotion-sliders">
         <h3>情感控制</h3>
+        {emotionApplied && (
+          <div className="emotion-applied-badge">
+            已应用 {emotionApplied.paramCount} 个参数
+          </div>
+        )}
         <div className="emotion-grid">
           {[
             { id: 'warmth', label: '温暖度', icon: '🔥' },
