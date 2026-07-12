@@ -7,7 +7,18 @@
 #include <JuceHeader.h>
 #include <vector>
 #include <array>
-#include "../params/ParameterTree.h"
+#include <unordered_map>
+#include <unordered_set>
+
+// =============================================================================
+// 参数映射记录 (与 ParameterTree.h 中的定义保持一致)
+// 为了避免引入完整的 ParameterTree 依赖，在此处独立定义
+// =============================================================================
+struct ParameterMapping {
+    juce::String parameterId;
+    float value = 0.0f;
+    juce::String explanation;
+};
 
 namespace LianCore {
 

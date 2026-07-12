@@ -12,11 +12,14 @@
 namespace LianCore {
 
 // 参数映射 (AI推理结果)
+#ifndef PARAMETER_MAPPING_DEFINED
+#define PARAMETER_MAPPING_DEFINED
 struct ParameterMapping {
     juce::String parameterId;
     float value;
     juce::String explanation; // AI生成的原因
 };
+#endif
 
 // 参数树监听器
 class ParameterTreeListener {

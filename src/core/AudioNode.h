@@ -150,6 +150,9 @@ protected:
     void addInputPort(const juce::String& name, const PortDescriptor& desc);
     void addOutputPort(const juce::String& name, const PortDescriptor& desc);
 
+    // NodeFactory 需要访问端口初始化方法
+    friend class NodeFactory;
+
     // 性能追踪
     void updateProcessingTime(double ms);
     void updateMemoryUsage(size_t bytes);

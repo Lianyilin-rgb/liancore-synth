@@ -3,6 +3,7 @@
 // 验收标准: MM-001, MM-003, MM-004, MM-005
 // =============================================================================
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include "ModulationMatrix.h"
 #include "EnvelopeGenerator.h"
 #include "LFOGenerator.h"
@@ -108,17 +109,17 @@ TEST_CASE("ModulationMatrix: 调制路由", "[modulation][mm-003]") {
 
     SECTION("调制量范围") {
         matrix.addModulation("lfo", "cutoff", 0.5f);
-        REQUIRE(matrix.getModulationAmount(0) == Approx(0.5f).margin(0.001f));
+        REQUIRE(matrix.getModulationAmount(0) == Catch::Approx(0.5f).margin(0.001f));
     }
 
     SECTION("调制量裁剪") {
         matrix.addModulation("lfo", "cutoff", 2.0f);
-        REQUIRE(matrix.getModulationAmount(0) == Approx(1.0f).margin(0.001f));
+        REQUIRE(matrix.getModulationAmount(0) == Catch::Approx(1.0f).margin(0.001f));
     }
 
     SECTION("负向调制") {
         matrix.addModulation("lfo", "cutoff", -0.5f);
-        REQUIRE(matrix.getModulationAmount(0) == Approx(-0.5f).margin(0.001f));
+        REQUIRE(matrix.getModulationAmount(0) == Catch::Approx(-0.5f).margin(0.001f));
     }
 
     SECTION("移除调制路由") {
@@ -213,7 +214,7 @@ TEST_CASE("ModulationMatrix: 可视化快照", "[modulation][snapshot]") {
     REQUIRE(snapshot.size() == 1);
     REQUIRE(snapshot[0].sourceId == "lfo");
     REQUIRE(snapshot[0].targetId == "cutoff");
-    REQUIRE(snapshot[0].amount == Approx(0.5f).margin(0.001f));
+    REQUIRE(snapshot[0].amount == Catch::Approx(0.5f).margin(0.001f));
 }
 
 // =============================================================================
@@ -237,7 +238,7 @@ TEST_CASE("ModulationMatrix: 序列化", "[modulation][serialization]") {
     matrix2.registerTarget("cutoff", &tgt);
     matrix2.fromJson(json);
     REQUIRE(matrix2.getNumRoutes() == 1);
-    REQUIRE(matrix2.getModulationAmount(0) == Approx(0.5f).margin(0.001f));
+    REQUIRE(matrix2.getModulationAmount(0) == Catch::Approx(0.5f).margin(0.001f));
 }
 
 // =============================================================================
@@ -254,10 +255,10 @@ TEST_CASE("EnvelopeGenerator: ADSR", "[modulation][envelope]") {
 
     SECTION("参数设置") {
         env.setAttack(5.0f);
-        REQUIRE(env.getParameter(0) == Approx(5.0f / 10000.0f).margin(0.01f));
+        REQUIRE(env.getParameter(0) == Catch::Approx(5.0f / 10000.0f).margin(0.01f));
 
         env.setSustain(0.7f);
-        REQUIRE(env.getParameter(2) == Approx(0.7f).margin(0.01f));
+        REQUIRE(env.getParameter(2) == Catch::Approx(0.7f).margin(0.01f));
     }
 
     SECTION("noteOn触发") {
@@ -285,7 +286,7 @@ TEST_CASE("LFOGenerator: 波形输出", "[modulation][lfo]") {
 
     SECTION("频率设置") {
         lfo.setFrequency(2.0f);
-        REQUIRE(lfo.getParameter(0) == Approx(2.0f / 100.0f).margin(0.001f));
+        REQUIRE(lfo.getParameter(0) == Catch::Approx(2.0f / 100.0f).margin(0.001f));
     }
 
     SECTION("处理输出") {

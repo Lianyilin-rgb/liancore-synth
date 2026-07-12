@@ -3,6 +3,7 @@
 // 验收标准: WT-001, WT-003, WT-004, WT-005
 // =============================================================================
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include "WavetableBank.h"
 #include "WavetableOscillator.h"
 #include "VirtualAnalogOscillator.h"
@@ -104,17 +105,17 @@ TEST_CASE("WavetableOscillator: 基本功能", "[wavetable][wt-004]") {
 
     SECTION("频率设置") {
         osc.setFrequency(440.0f);
-        REQUIRE(osc.getParameter(0) == Approx(440.0f / 20000.0f).margin(0.001f));
+        REQUIRE(osc.getParameter(0) == Catch::Approx(440.0f / 20000.0f).margin(0.001f));
     }
 
     SECTION("波表帧设置") {
         osc.setFrameIndex(64.0f);
-        REQUIRE(osc.getParameter(1) == Approx(64.0f / 255.0f).margin(0.001f));
+        REQUIRE(osc.getParameter(1) == Catch::Approx(64.0f / 255.0f).margin(0.001f));
     }
 
     SECTION("Unison设置") {
         osc.setUnisonVoices(4);
-        REQUIRE(osc.getParameter(4) == Approx(4.0f / 16.0f).margin(0.001f));
+        REQUIRE(osc.getParameter(4) == Catch::Approx(4.0f / 16.0f).margin(0.001f));
     }
 
     SECTION("音频处理") {
@@ -245,6 +246,6 @@ TEST_CASE("FilterProcessor: 滤波模式", "[synth][filter]") {
 
     SECTION("参数切换") {
         filter.setFilterMode(FilterMode::BandPass);
-        REQUIRE(filter.getParameter(0) == Approx(2.0f / 4.0f).margin(0.01f));
+        REQUIRE(filter.getParameter(0) == Catch::Approx(2.0f / 4.0f).margin(0.01f));
     }
 }

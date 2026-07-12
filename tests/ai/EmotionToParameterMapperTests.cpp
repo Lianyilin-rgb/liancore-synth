@@ -4,7 +4,7 @@
 // =============================================================================
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
-#include "../src/ai/EmotionToParameterMapper.h"
+#include "EmotionToParameterMapper.h"
 
 using namespace LianCore;
 
@@ -328,8 +328,8 @@ TEST_CASE("EmotionToParameterMapper: 锚点管理", "[emotion][management]") {
 
     SECTION("设置自定义锚点") {
         AnchorPreset custom;
-        custom.name = "自定义测试";
-        custom.description = "测试锚点";
+        custom.name = "CustomTest";
+        custom.description = "Test anchor";
         custom.warmth = 0.5f;
         custom.energy = 0.5f;
         custom.tension = 0.5f;
@@ -339,7 +339,7 @@ TEST_CASE("EmotionToParameterMapper: 锚点管理", "[emotion][management]") {
         mapper.setAnchorPreset(3, custom);
         auto retrieved = mapper.getAnchorPreset(3);
 
-        REQUIRE(retrieved.name == "自定义测试");
+        REQUIRE(retrieved.name == "CustomTest");
         REQUIRE(retrieved.parameters["filter_cutoff"] == Catch::Approx(0.42f));
     }
 

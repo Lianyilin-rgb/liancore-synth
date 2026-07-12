@@ -4,8 +4,8 @@
 // 使用 JUCE UnitTest 框架
 // =============================================================================
 #include <JuceHeader.h>
-#include "../src/params/PresetManager.h"
-#include "../src/params/PreparedStatement.h"
+#include "PresetManager.h"
+#include "PreparedStatement.h"
 
 // =============================================================================
 // 测试 1: 数据库初始化

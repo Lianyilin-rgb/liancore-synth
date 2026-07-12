@@ -3,6 +3,7 @@
 // 验收标准: AE-003, AE-004, AE-005, AE-006
 // =============================================================================
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include "AudioGraphEngine.h"
 #include "AudioUtils.h"
 
@@ -130,14 +131,14 @@ TEST_CASE("AudioUtils: 频率转换", "[audio_utils]") {
     using namespace AudioUtils;
 
     SECTION("MIDI音符 → 频率") {
-        REQUIRE(midiNoteToFrequency(69.0) == Approx(440.0).margin(0.1));
-        REQUIRE(midiNoteToFrequency(81.0) == Approx(880.0).margin(0.5));
-        REQUIRE(midiNoteToFrequency(57.0) == Approx(220.0).margin(0.1));
+        REQUIRE(midiNoteToFrequency(69.0) == Catch::Approx(440.0).margin(0.1));
+        REQUIRE(midiNoteToFrequency(81.0) == Catch::Approx(880.0).margin(0.5));
+        REQUIRE(midiNoteToFrequency(57.0) == Catch::Approx(220.0).margin(0.1));
     }
 
     SECTION("半音 → 频率倍率") {
-        REQUIRE(semitonesToRatio(12.0) == Approx(2.0).margin(0.001));
-        REQUIRE(semitonesToRatio(0.0) == Approx(1.0).margin(0.001));
+        REQUIRE(semitonesToRatio(12.0) == Catch::Approx(2.0).margin(0.001));
+        REQUIRE(semitonesToRatio(0.0) == Catch::Approx(1.0).margin(0.001));
     }
 
     SECTION("值域裁剪") {
@@ -164,7 +165,7 @@ TEST_CASE("AudioUtils: SIMD操作", "[audio_utils][simd]") {
         std::fill_n(buffer, 256, 0.5f);
         multiplyBufferSIMD(buffer, 2.0f, 256);
         for (int i = 0; i < 256; ++i) {
-            REQUIRE(buffer[i] == Approx(1.0f).margin(0.001f));
+            REQUIRE(buffer[i] == Catch::Approx(1.0f).margin(0.001f));
         }
     }
 }

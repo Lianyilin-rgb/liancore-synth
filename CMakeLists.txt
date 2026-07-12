@@ -21,21 +21,20 @@ else()
 endif()
 
 # =============================================================================
-# JUCE 框架配置
+# JUCE 框架配置 (本地预下载版本, 不再使用 FetchContent)
 # =============================================================================
-set(JUCE_VERSION "8.0.6")
-set(JUCE_DIR "${CMAKE_SOURCE_DIR}/libs/JUCE")
+set(JUCE_VERSION "8.0.14")
 
-# 如果JUCE不存在，通过FetchContent获取
+if(WIN32)
+    set(JUCE_DIR "${CMAKE_SOURCE_DIR}/juce-8.0.14-windows/JUCE")
+elseif(APPLE)
+    set(JUCE_DIR "${CMAKE_SOURCE_DIR}/juce-8.0.14-osx/JUCE")
+else()
+    message(FATAL_ERROR "Unsupported platform for JUCE local path")
+endif()
+
 if(NOT EXISTS "${JUCE_DIR}/CMakeLists.txt")
-    include(FetchContent)
-    FetchContent_Declare(
-        JUCE
-        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-        GIT_TAG ${JUCE_VERSION}
-        SOURCE_DIR ${JUCE_DIR}
-    )
-    FetchContent_MakeAvailable(JUCE)
+    message(FATAL_ERROR "JUCE 8.0.14 not found at ${JUCE_DIR}. Please download it first.")
 endif()
 
 add_subdirectory(${JUCE_DIR})
