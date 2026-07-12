@@ -3,11 +3,17 @@
 // =============================================================================
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import liancore, { GenerationResult, Preset, ParameterMapping } from './websocket';
+import ProModeApp from './ProMode';
 
 // =============================================================================
 // App 组件
 // =============================================================================
 const App: React.FC = () => {
+  const [mode, setMode] = useState<'minimal' | 'pro'>('minimal');
+
+  // 专业模式
+  if (mode === 'pro') return <ProModeApp />;
+
   const [connected, setConnected] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -121,6 +127,16 @@ const App: React.FC = () => {
       <div className="top-bar">
         <span className="logo">LianCore</span>
         <span className="version-badge">BETA</span>
+        <button
+          onClick={() => setMode(mode === 'pro' ? 'minimal' : 'pro')}
+          style={{
+            padding: '3px 10px', background: 'rgba(108,92,231,0.15)',
+            border: '1px solid #2a2a3a', borderRadius: 3, color: '#8888a0',
+            cursor: 'pointer', fontSize: 10, marginLeft: 8,
+          }}
+        >
+          {mode === 'pro' ? 'PRO' : '极简'}
+        </button>
         <span className={`status-dot ${connected ? 'connected' : 'disconnected'}`}
               title={connected ? '已连接' : '未连接'} />
       </div>
