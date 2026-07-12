@@ -84,6 +84,19 @@ private:
     // 处理Web UI消息
     void setupMessageHandlers();
 
+    // =========================================================================
+    // Beta Week 8: morphTo 渐变 + ONNX 推理结果推送
+    // =========================================================================
+
+    // 推送 ONNX 模型状态到 Web UI
+    void pushOnnxStatus();
+
+    // 推送 morph 渐变进度到 Web UI
+    void pushMorphProgress(float progress, const juce::String& status);
+
+    // morph 渐变完成回调
+    void onMorphComplete();
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginEditor)
 };
 

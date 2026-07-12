@@ -1,6 +1,7 @@
 // =============================================================================
 // LianCore - Pro Mode Web UI
 // 专业模式: 节点图 + 参数面板 + 波形/FFT/LFO 可视化
+// Beta Week 8: 连线动画 + 参数实时高亮
 // =============================================================================
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -50,8 +51,10 @@ const NodeGraph: React.FC<{
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const animRef = useRef<number>(0);
+  const flowOffsetRef = useRef(0); // 连线流动动画偏移
 
-  // 绘制画布
+  // 绘制画布 (Beta Week 8: 添加连线流动动画)
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -75,7 +78,13 @@ const NodeGraph: React.FC<{
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
     }
 
-    // 绘制连接线
+    // 计算连线端点 (预计算贝塞尔曲线)
+    const connCurves: Array<{
+      sx: number; sy: number; dx: number; dy: number;
+      mx: number; my: number;
+      enabled: boolean;
+    }> = [];
+
     connections.forEach(conn => {
       const src = nodes.find(n => n.id === conn.srcNode);
       const dst = nodes.find(n => n.id === conn.dstNode);
@@ -85,18 +94,50 @@ const NodeGraph: React.FC<{
       const sy = (src.y * scale) + pan.y + 30;
       const dx = (dst.x * scale) + pan.x + 75;
       const dy = (dst.y * scale) + pan.y + 30;
-
       const mx = (sx + dx) / 2;
 
-      ctx.strokeStyle = 'rgba(0, 206, 201, 0.4)';
-      ctx.lineWidth = 2;
+      connCurves.push({ sx, sy, dx, dy, mx, my: sy, enabled: src.enabled && dst.enabled });
+    });
+
+    // 绘制连接线 (Beta Week 8: 带流动动画)
+    const flowOffset = flowOffsetRef.current;
+    connCurves.forEach(({ sx, sy, dx, dy, mx, enabled }) => {
+      // 连线主体
+      ctx.strokeStyle = enabled ? 'rgba(0, 206, 201, 0.35)' : 'rgba(85, 85, 104, 0.2)';
+      ctx.lineWidth = enabled ? 2 : 1.5;
       ctx.beginPath();
       ctx.moveTo(sx + 75, sy);
       ctx.bezierCurveTo(mx, sy, mx, dy, dx, dy);
       ctx.stroke();
 
+      // Beta Week 8: 连线流动圆点动画
+      if (enabled) {
+        const numDots = 3;
+        for (let d = 0; d < numDots; d++) {
+          const t = ((flowOffset * 0.02 + d * 0.33) % 1.0);
+          // 贝塞尔曲线采样: B(t) = (1-t)^3*P0 + 3*(1-t)^2*t*P1 + 3*(1-t)*t^2*P2 + t^3*P3
+          const t2 = t * t;
+          const t3 = t2 * t;
+          const mt = 1 - t;
+          const mt2 = mt * mt;
+          const mt3 = mt2 * mt;
+
+          const px = mt3 * (sx + 75) + 3 * mt2 * t * mx + 3 * mt * t2 * mx + t3 * dx;
+          const py = mt3 * sy + 3 * mt2 * t * sy + 3 * mt * t2 * dy + t3 * dy;
+
+          // 流动光晕
+          ctx.fillStyle = 'rgba(0, 206, 201, 0.7)';
+          ctx.shadowColor = 'rgba(0, 206, 201, 0.8)';
+          ctx.shadowBlur = 6;
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
+
       // 连接点
-      ctx.fillStyle = '#00cec9';
+      ctx.fillStyle = enabled ? '#00cec9' : '#555568';
       ctx.beginPath();
       ctx.arc(sx + 75, sy, 4, 0, Math.PI * 2);
       ctx.fill();
@@ -171,6 +212,22 @@ const NodeGraph: React.FC<{
       }
     });
   }, [nodes, connections, selectedNode, scale, pan]);
+
+  // 驱动动画循环 (Beta Week 8: 连线流动)
+  useEffect(() => {
+    let running = true;
+    const animate = () => {
+      if (!running) return;
+      flowOffsetRef.current += 1;
+      draw();
+      animRef.current = requestAnimationFrame(animate);
+    };
+    animRef.current = requestAnimationFrame(animate);
+    return () => {
+      running = false;
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [draw]);
 
   useEffect(() => {
     draw();
@@ -414,7 +471,7 @@ function getWaveformValue(phase: number, type: string): number {
 }
 
 // =============================================================================
-// 参数面板 (旋钮 + 滑块)
+// 参数面板 (旋钮 + 滑块) - Beta Week 8: 实时高亮
 // =============================================================================
 const ParameterKnob: React.FC<{
   label: string;
@@ -423,9 +480,22 @@ const ParameterKnob: React.FC<{
   max?: number;
   onChange: (v: number) => void;
   unit?: string;
-}> = ({ label, value, min = 0, max = 1, onChange, unit = '' }) => {
+  highlight?: boolean; // Beta Week 8: 实时高亮
+}> = ({ label, value, min = 0, max = 1, onChange, unit = '', highlight = false }) => {
   const [dragging, setDragging] = useState(false);
   const knobRef = useRef<HTMLDivElement>(null);
+  const [prevValue, setPrevValue] = useState(value);
+  const [flashActive, setFlashActive] = useState(false);
+
+  // Beta Week 8: 值变化时触发高亮闪烁
+  useEffect(() => {
+    if (value !== prevValue) {
+      setFlashActive(true);
+      setPrevValue(value);
+      const timer = setTimeout(() => setFlashActive(false), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [value, prevValue]);
 
   const displayValue = unit === '%' ? (value * 100).toFixed(0) : unit === 'Hz' ? frequencyDisplay(value) : value.toFixed(2);
 
@@ -448,6 +518,8 @@ const ParameterKnob: React.FC<{
 
   const rotation = -135 + (value / (max - min)) * 270;
 
+  const isHighlighted = highlight || flashActive;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
       <div
@@ -455,16 +527,20 @@ const ParameterKnob: React.FC<{
         onMouseDown={() => setDragging(true)}
         style={{
           width: 44, height: 44, borderRadius: '50%',
-          background: '#1a1a28', border: '2px solid #2a2a3a',
+          background: '#1a1a28',
+          border: isHighlighted ? '2px solid #00cec9' : '2px solid #2a2a3a',
           position: 'relative', cursor: 'ns-resize',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: isHighlighted ? '0 0 12px rgba(0, 206, 201, 0.4)' : 'none',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
         }}
       >
         <div style={{
-          width: 2, height: 14, background: '#6c5ce7', borderRadius: 1,
+          width: 2, height: 14, background: isHighlighted ? '#00cec9' : '#6c5ce7', borderRadius: 1,
           position: 'absolute', bottom: '50%', left: '50%',
           transform: `translateX(-50%) rotate(${rotation}deg)`,
           transformOrigin: 'bottom center',
+          transition: 'background 0.2s',
         }} />
         <div style={{
           width: 28, height: 28, borderRadius: '50%',
@@ -472,8 +548,18 @@ const ParameterKnob: React.FC<{
           border: '1px solid #2a2a3a',
         }} />
       </div>
-      <span style={{ fontSize: 9, color: '#8888a0', textAlign: 'center', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      <span style={{ fontSize: 10, color: '#e0e0e0', fontFamily: '"JetBrains Mono", monospace' }}>{displayValue}{unit}</span>
+      <span style={{
+        fontSize: 9, color: isHighlighted ? '#00cec9' : '#8888a0',
+        textAlign: 'center', maxWidth: 60, overflow: 'hidden',
+        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        transition: 'color 0.2s',
+      }}>{label}</span>
+      <span style={{
+        fontSize: 10, color: isHighlighted ? '#00cec9' : '#e0e0e0',
+        fontFamily: '"JetBrains Mono", monospace',
+        fontWeight: flashActive ? 700 : 400,
+        transition: 'color 0.2s, font-weight 0.2s',
+      }}>{displayValue}{unit}</span>
     </div>
   );
 };
@@ -534,6 +620,29 @@ const ProModeApp: React.FC = () => {
 
   const selectedNodeInfo = nodes.find(n => n.id === selectedNode);
   const [lfoRunning, setLfoRunning] = useState(true);
+
+  // Beta Week 8: 动态参数值 (模拟实时调制, 驱动参数面板高亮)
+  const [dynamicParams, setDynamicParams] = useState<Record<string, number>>({
+    filter_cutoff: 0.5, filter_resonance: 0.3, reverb_size: 0.6,
+    delay_time: 0.4, lfo_rate: 0.4, env_attack: 0.1,
+    osc_freq: 0.5, osc_volume: 0.8, distortion_drive: 0.7,
+  });
+
+  // 模拟 LFO 调制参数变化
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const t = performance.now() * 0.001;
+      setDynamicParams(prev => ({
+        ...prev,
+        filter_cutoff: 0.3 + Math.sin(t * 0.7) * 0.25 + 0.25,
+        filter_resonance: 0.2 + Math.sin(t * 1.3 + 1) * 0.15 + 0.15,
+        lfo_rate: 0.3 + Math.sin(t * 0.5) * 0.2 + 0.2,
+        osc_freq: 0.4 + Math.sin(t * 0.3) * 0.15 + 0.15,
+        reverb_size: 0.5 + Math.sin(t * 0.2) * 0.1 + 0.1,
+      }));
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div style={{
@@ -627,8 +736,8 @@ const ProModeApp: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                 {selectedNodeInfo.type === 'FilterProcessor' && (
                   <>
-                    <ParameterKnob label="截止频率" value={0.5} onChange={() => {}} unit="Hz" />
-                    <ParameterKnob label="共振" value={0.3} onChange={() => {}} unit="%" />
+                    <ParameterKnob label="截止频率" value={dynamicParams.filter_cutoff} onChange={(v) => setDynamicParams(p => ({...p, filter_cutoff: v}))} unit="Hz" highlight />
+                    <ParameterKnob label="共振" value={dynamicParams.filter_resonance} onChange={(v) => setDynamicParams(p => ({...p, filter_resonance: v}))} unit="%" />
                     <ParameterKnob label="类型" value={0.4} onChange={() => {}} />
                     <ParameterKnob label="驱动" value={0.1} onChange={() => {}} unit="%" />
                     <ParameterKnob label="干湿比" value={0.8} onChange={() => {}} unit="%" />
@@ -636,8 +745,8 @@ const ProModeApp: React.FC = () => {
                 )}
                 {selectedNodeInfo.type === 'WavetableOscillator' && (
                   <>
-                    <ParameterKnob label="频率" value={0.5} onChange={() => {}} unit="Hz" />
-                    <ParameterKnob label="音量" value={0.8} onChange={() => {}} unit="%" />
+                    <ParameterKnob label="频率" value={dynamicParams.osc_freq} onChange={(v) => setDynamicParams(p => ({...p, osc_freq: v}))} unit="Hz" highlight />
+                    <ParameterKnob label="音量" value={dynamicParams.osc_volume} onChange={(v) => setDynamicParams(p => ({...p, osc_volume: v}))} unit="%" />
                     <ParameterKnob label="Unison" value={0.3} onChange={() => {}} />
                     <ParameterKnob label="Detune" value={0.15} onChange={() => {}} />
                     <ParameterKnob label="帧位置" value={0.5} onChange={() => {}} />
@@ -646,7 +755,7 @@ const ProModeApp: React.FC = () => {
                 )}
                 {selectedNodeInfo.type === 'Delay' && (
                   <>
-                    <ParameterKnob label="时间" value={0.4} onChange={() => {}} />
+                    <ParameterKnob label="时间" value={dynamicParams.delay_time} onChange={(v) => setDynamicParams(p => ({...p, delay_time: v}))} highlight />
                     <ParameterKnob label="反馈" value={0.6} onChange={() => {}} unit="%" />
                     <ParameterKnob label="混合" value={0.3} onChange={() => {}} unit="%" />
                     <ParameterKnob label="LP滤波" value={0.7} onChange={() => {}} unit="Hz" />
@@ -655,7 +764,7 @@ const ProModeApp: React.FC = () => {
                 )}
                 {selectedNodeInfo.type === 'Reverb' && (
                   <>
-                    <ParameterKnob label="房间大小" value={0.6} onChange={() => {}} />
+                    <ParameterKnob label="房间大小" value={dynamicParams.reverb_size} onChange={(v) => setDynamicParams(p => ({...p, reverb_size: v}))} highlight />
                     <ParameterKnob label="衰减" value={0.5} onChange={() => {}} />
                     <ParameterKnob label="混合" value={0.3} onChange={() => {}} unit="%" />
                     <ParameterKnob label="阻尼" value={0.4} onChange={() => {}} unit="%" />
@@ -664,14 +773,14 @@ const ProModeApp: React.FC = () => {
                 )}
                 {selectedNodeInfo.type === 'LFOGenerator' && (
                   <>
-                    <ParameterKnob label="速率" value={0.4} onChange={() => {}} unit="Hz" />
+                    <ParameterKnob label="速率" value={dynamicParams.lfo_rate} onChange={(v) => setDynamicParams(p => ({...p, lfo_rate: v}))} unit="Hz" highlight />
                     <ParameterKnob label="深度" value={0.5} onChange={() => {}} unit="%" />
                     <ParameterKnob label="波形" value={0.2} onChange={() => {}} />
                   </>
                 )}
                 {selectedNodeInfo.type === 'EnvelopeGenerator' && (
                   <>
-                    <ParameterKnob label="起音" value={0.1} onChange={() => {}} />
+                    <ParameterKnob label="起音" value={dynamicParams.env_attack} onChange={(v) => setDynamicParams(p => ({...p, env_attack: v}))} highlight />
                     <ParameterKnob label="衰减" value={0.3} onChange={() => {}} />
                     <ParameterKnob label="保持" value={0.7} onChange={() => {}} unit="%" />
                     <ParameterKnob label="释音" value={0.5} onChange={() => {}} />
@@ -679,7 +788,7 @@ const ProModeApp: React.FC = () => {
                 )}
                 {selectedNodeInfo.type === 'Distortion' && (
                   <>
-                    <ParameterKnob label="驱动" value={0.7} onChange={() => {}} unit="%" />
+                    <ParameterKnob label="驱动" value={dynamicParams.distortion_drive} onChange={(v) => setDynamicParams(p => ({...p, distortion_drive: v}))} unit="%" highlight />
                     <ParameterKnob label="类型" value={0.3} onChange={() => {}} />
                     <ParameterKnob label="输出" value={0.5} onChange={() => {}} unit="%" />
                     <ParameterKnob label="混合" value={0.8} onChange={() => {}} unit="%" />

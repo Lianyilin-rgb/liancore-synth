@@ -31,6 +31,9 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/ai/EmotionToParameterMapper.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/OnnxModelExporter.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/AIInferenceEngine.cpp
+
+    # 参数树 (Beta Week 8: morphTo 测试依赖)
+    ${CMAKE_SOURCE_DIR}/src/params/ParameterTree.cpp
 )
 
 # 配置测试目标

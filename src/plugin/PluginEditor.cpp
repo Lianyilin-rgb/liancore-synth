@@ -502,8 +502,109 @@ void PluginEditor::setupMessageHandlers() {
         }
         resultObj.setProperty("parameters", params);
 
+        // Beta Week 8: 附加推理引擎信息
+        resultObj.setProperty("inferenceTimeMs", ai.getLastInferenceTimeMs());
+        resultObj.setProperty("modelInfo", ai.getModelInfo());
+
         uiServer_.sendToUI("ai_generate_result", resultObj);
     });
+
+    // =========================================================================
+    // Beta Week 8: morphTo 渐变过渡消息处理
+    // Web UI 可触发参数渐变，例如预设切换时平滑过渡
+    // =========================================================================
+    uiServer_.onMessage("morph", [this](const juce::var& payload) {
+        auto targetsVar = payload.getProperty("targets", juce::var());
+        int durationMs = payload.getProperty("durationMs", 300);
+
+        if (!targetsVar.isArray()) {
+            uiServer_.sendToUI("error", juce::var("morph: targets must be an array"));
+            return;
+        }
+
+        // 构建 morph 目标列表
+        std::vector<LianCoreParameterTree::MorphTarget> targets;
+        for (const auto& t : *targetsVar.getArray()) {
+            LianCoreParameterTree::MorphTarget target;
+            target.parameterId = t.getProperty("parameterId", "").toString();
+            target.targetValue = static_cast<float>(t.getProperty("targetValue", 0.5));
+            if (target.parameterId.isNotEmpty()) {
+                targets.push_back(target);
+            }
+        }
+
+        if (targets.empty()) {
+            uiServer_.sendToUI("error", juce::var("morph: no valid targets"));
+            return;
+        }
+
+        // 启动渐变
+        auto& paramTree = processor_.getParameterTree();
+        paramTree.morphTo(targets, durationMs);
+
+        // 发送确认
+        juce::DynamicObject ack;
+        ack.setProperty("targetCount", static_cast<int>(targets.size()));
+        ack.setProperty("durationMs", durationMs);
+        uiServer_.sendToUI("morph_started", ack);
+    });
+
+    // =========================================================================
+    // Beta Week 8: ONNX 模型状态查询
+    // =========================================================================
+    uiServer_.onMessage("onnx_status", [this](const juce::var&) {
+        pushOnnxStatus();
+    });
+
+    // =========================================================================
+    // Beta Week 8: morph 进度查询
+    // =========================================================================
+    uiServer_.onMessage("morph_status", [this](const juce::var&) {
+        auto& paramTree = processor_.getParameterTree();
+        if (paramTree.isMorphing()) {
+            pushMorphProgress(0.5f, "morphing");
+        } else {
+            pushMorphProgress(1.0f, "idle");
+        }
+    });
+}
+
+// =============================================================================
+// Beta Week 8: ONNX 状态推送
+// =============================================================================
+void PluginEditor::pushOnnxStatus() {
+    auto& ai = processor_.getAIEngine();
+    juce::DynamicObject status;
+
+    status.setProperty("modelLoaded", ai.isModelLoaded());
+    status.setProperty("modelInfo", ai.getModelInfo());
+    status.setProperty("lastInferenceTimeMs", ai.getLastInferenceTimeMs());
+    status.setProperty("onnxAvailable",
+#ifdef LIANCORE_HAS_ONNX
+        true
+#else
+        false
+#endif
+    );
+
+    uiServer_.sendToUI("onnx_status", status);
+}
+
+// =============================================================================
+// Beta Week 8: morph 渐变进度推送
+// =============================================================================
+void PluginEditor::pushMorphProgress(float progress, const juce::String& status) {
+    juce::DynamicObject info;
+    info.setProperty("progress", progress);
+    info.setProperty("status", status);
+    uiServer_.sendToUI("morph_progress", info);
+}
+
+// =============================================================================
+// Beta Week 8: morph 渐变完成回调
+// =============================================================================
+void PluginEditor::onMorphComplete() {
+    pushMorphProgress(1.0f, "complete");
 }
 
 } // namespace LianCore
