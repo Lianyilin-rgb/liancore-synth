@@ -35,6 +35,7 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/ai/TextTokenizer.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/TransformerTextEncoder.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/AudioTimbreAnalyzer.cpp
+    ${CMAKE_SOURCE_DIR}/src/ai/WavetableGenerator.cpp
 )
 
 # 配置测试目标
