@@ -29,6 +29,8 @@ add_executable(LianCoreTests
 
     # AI推理层 (EmotionToParameterMapper 依赖)
     ${CMAKE_SOURCE_DIR}/src/ai/EmotionToParameterMapper.cpp
+    ${CMAKE_SOURCE_DIR}/src/ai/OnnxModelExporter.cpp
+    ${CMAKE_SOURCE_DIR}/src/ai/AIInferenceEngine.cpp
 )
 
 # 配置测试目标

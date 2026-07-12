@@ -6,6 +6,179 @@ import liancore, { GenerationResult, Preset, ParameterMapping } from './websocke
 import ProModeApp from './ProMode';
 
 // =============================================================================
+// 实时参数旋钮组件 (Beta Week 7: 极简模式视觉反馈)
+// =============================================================================
+const ParameterKnob: React.FC<{
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (v: number) => void;
+  unit?: string;
+  size?: number;
+}> = ({ label, value, min = 0, max = 1, onChange, unit = '', size = 48 }) => {
+  const [dragging, setDragging] = useState(false);
+  const [animValue, setAnimValue] = useState(value);
+
+  // 平滑动画过渡
+  useEffect(() => {
+    const startVal = animValue;
+    const endVal = value;
+    const duration = 150; // ms
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const t = Math.min(1, elapsed / duration);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      setAnimValue(startVal + (endVal - startVal) * eased);
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    requestAnimationFrame(animate);
+  }, [value]);
+
+  const rotation = -135 + (animValue / (max - min)) * 270;
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragging) return;
+    const delta = e.movementY * -0.005;
+    onChange(Math.max(min, Math.min(max, value + delta)));
+  }, [dragging, value, min, max, onChange]);
+
+  useEffect(() => {
+    if (dragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', () => setDragging(false));
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', () => setDragging(false));
+      };
+    }
+  }, [dragging, handleMouseMove]);
+
+  const displayValue = value.toFixed(2);
+
+  return (
+    <div className="param-knob-container">
+      <div
+        className="param-knob"
+        onMouseDown={() => setDragging(true)}
+        style={{ width: size, height: size }}
+      >
+        <svg width={size} height={size} viewBox="0 0 48 48" className="param-knob-svg">
+          {/* 背景弧 */}
+          <circle cx="24" cy="24" r="20" fill="none" stroke="#2a2a3a" strokeWidth="3" />
+          {/* 值弧 */}
+          <circle
+            cx="24" cy="24" r="20" fill="none"
+            stroke="url(#knobGradient)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={`${(animValue / (max - min)) * 94.25} 188.5`}
+            strokeDashoffset="0"
+            transform="rotate(-135 24 24)"
+            style={{ transition: 'stroke-dasharray 0.15s ease-out' }}
+          />
+          {/* 指示线 */}
+          <line
+            x1="24" y1="24"
+            x2="24" y2="8"
+            stroke="#6c5ce7"
+            strokeWidth="2"
+            strokeLinecap="round"
+            transform={`rotate(${rotation} 24 24)`}
+            style={{ transition: 'transform 0.15s ease-out' }}
+          />
+          <defs>
+            <linearGradient id="knobGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#6c5ce7" />
+              <stop offset="100%" stopColor="#00cec9" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <span className="param-knob-label">{label}</span>
+      <span className="param-knob-value">{displayValue}{unit}</span>
+    </div>
+  );
+};
+
+// =============================================================================
+// 波形预览组件 (Beta Week 7: 极简模式实时波形)
+// =============================================================================
+const WaveformPreview: React.FC<{ active: boolean }> = ({ active }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<number>(0);
+  const phaseRef = useRef(0);
+
+  useEffect(() => {
+    if (!active) {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const animate = () => {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // 网格
+      ctx.strokeStyle = 'rgba(108, 92, 231, 0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const y = (h / 4) * i;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(108, 92, 231, 0.15)';
+      ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+
+      // 波形
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, '#6c5ce7');
+      gradient.addColorStop(0.5, '#00cec9');
+      gradient.addColorStop(1, '#6c5ce7');
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+
+      for (let i = 0; i < w; i++) {
+        const phase = phaseRef.current + (i / w) * Math.PI * 2;
+        const y = h / 2 - Math.sin(phase) * (h / 2) * 0.7;
+        if (i === 0) ctx.moveTo(i, y);
+        else ctx.lineTo(i, y);
+      }
+      ctx.stroke();
+
+      phaseRef.current += 0.02;
+      if (phaseRef.current > Math.PI * 2) phaseRef.current -= Math.PI * 2;
+      animRef.current = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [active]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={360}
+      height={60}
+      className="waveform-preview-canvas"
+    />
+  );
+};
+
+// =============================================================================
 // App 组件
 // =============================================================================
 const App: React.FC = () => {
@@ -25,6 +198,7 @@ const App: React.FC = () => {
   const [activeStyleTags, setActiveStyleTags] = useState<string[]>([]);
   const [emotions, setEmotions] = useState({ warmth: 0.5, energy: 0.5, tension: 0.5 });
   const [emotionApplied, setEmotionApplied] = useState<{ paramCount: number } | null>(null);
+  const [previewActive, setPreviewActive] = useState(true);
 
   const categories = ['全部', '贝斯', '主音', '铺底', '打击', '键盘', '弦乐', '管乐', '特效', 'AI生成'];
 
@@ -262,6 +436,62 @@ const App: React.FC = () => {
               />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* 实时视觉反馈 (Beta Week 7: 波形预览 + 旋钮动画) */}
+      <div className="visual-feedback-section">
+        <div className="visual-feedback-header">
+          <h3>实时预览</h3>
+          <button
+            className="visual-toggle-btn"
+            onClick={() => setPreviewActive(!previewActive)}
+          >
+            {previewActive ? '已开启' : '已暂停'}
+          </button>
+        </div>
+        <div className="visual-feedback-grid">
+          {/* 波形预览 */}
+          <div className="visual-feedback-item">
+            <div className="visual-feedback-label">波形预览</div>
+            <div className="waveform-preview-wrapper">
+              <WaveformPreview active={previewActive} />
+            </div>
+          </div>
+          {/* 参数旋钮组 */}
+          <div className="visual-feedback-item">
+            <div className="visual-feedback-label">核心参数</div>
+            <div className="param-knobs-row">
+              <ParameterKnob
+                label="截止频率"
+                value={emotions.warmth * 0.6 + 0.2}
+                onChange={(v) => {
+                  liancore.setParameter('filter_cutoff', v);
+                }}
+              />
+              <ParameterKnob
+                label="共振"
+                value={emotions.tension * 0.5 + 0.2}
+                onChange={(v) => {
+                  liancore.setParameter('filter_resonance', v);
+                }}
+              />
+              <ParameterKnob
+                label="混响"
+                value={emotions.energy * 0.4 + 0.3}
+                onChange={(v) => {
+                  liancore.setParameter('reverb_size', v);
+                }}
+              />
+              <ParameterKnob
+                label="起音"
+                value={emotions.energy < 0.5 ? 0.1 : 0.4}
+                onChange={(v) => {
+                  liancore.setParameter('env_attack', v);
+                }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

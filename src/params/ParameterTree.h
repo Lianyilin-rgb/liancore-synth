@@ -68,6 +68,25 @@ public:
     void applyParameterBatch(const std::vector<ParameterMapping>& mappings);
 
     // =========================================================================
+    // 参数渐变过渡 (Beta Week 7: morphTo 平滑音色切换)
+    // 使用三次缓入缓出曲线，在指定时间内平滑过渡到目标参数
+    // =========================================================================
+    struct MorphTarget {
+        juce::String parameterId;
+        float targetValue;
+    };
+
+    // 启动渐变过渡 (非阻塞, 使用 Timer 驱动)
+    // durationMs: 过渡时长 (毫秒), 默认 300ms
+    void morphTo(const std::vector<MorphTarget>& targets, int durationMs = 300);
+
+    // 检查是否有正在进行的渐变
+    bool isMorphing() const;
+
+    // 取消当前渐变
+    void cancelMorph();
+
+    // =========================================================================
     // 撤销/重做 (最多50步)
     // =========================================================================
     void pushUndoState();
@@ -112,6 +131,20 @@ private:
 
     // 监听器列表
     juce::ListenerList<ParameterTreeListener> listeners_;
+
+    // 渐变过渡 (Beta Week 7)
+    struct MorphState {
+        bool active = false;
+        std::vector<MorphTarget> targets;
+        int durationMs = 300;
+        int elapsedMs = 0;
+        std::vector<float> startValues;
+        std::vector<float> endValues;
+    };
+    MorphState morphState_;
+
+    // 渐变更新 (由 Timer 回调)
+    void updateMorphStep();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LianCoreParameterTree)
 };

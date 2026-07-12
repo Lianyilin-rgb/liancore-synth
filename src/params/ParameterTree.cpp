@@ -160,4 +160,82 @@ void LianCoreParameterTree::removeListener(ParameterTreeListener* listener) {
     listeners_.remove(listener);
 }
 
+// =============================================================================
+// 参数渐变过渡 (Beta Week 7: morphTo)
+// 使用三次缓入缓出曲线 (cubic ease-in-out) 实现平滑音色切换
+// 公式: t = clamp01(elapsed / duration); 
+//        eased = t < 0.5 ? 4*t^3 : 1 - (-2*t + 2)^3 / 2
+// =============================================================================
+void LianCoreParameterTree::morphTo(const std::vector<MorphTarget>& targets, int durationMs) {
+    if (targets.empty()) return;
+
+    // 取消当前渐变
+    cancelMorph();
+
+    // 初始化渐变状态
+    morphState_.active = true;
+    morphState_.targets = targets;
+    morphState_.durationMs = juce::jmax(10, durationMs);
+    morphState_.elapsedMs = 0;
+
+    // 记录起始值和目标值
+    morphState_.startValues.clear();
+    morphState_.endValues.clear();
+    for (const auto& target : targets) {
+        morphState_.startValues.push_back(getParameterValue(target.parameterId));
+        morphState_.endValues.push_back(target.targetValue);
+    }
+}
+
+bool LianCoreParameterTree::isMorphing() const {
+    return morphState_.active;
+}
+
+void LianCoreParameterTree::cancelMorph() {
+    morphState_.active = false;
+    morphState_.targets.clear();
+    morphState_.startValues.clear();
+    morphState_.endValues.clear();
+    morphState_.elapsedMs = 0;
+}
+
+void LianCoreParameterTree::updateMorphStep() {
+    if (!morphState_.active) return;
+
+    // 计算时间进度 (假设 16ms 每帧, ~60fps)
+    const int stepMs = 16;
+    morphState_.elapsedMs += stepMs;
+
+    if (morphState_.elapsedMs >= morphState_.durationMs) {
+        // 渐变完成: 设置最终值
+        for (size_t i = 0; i < morphState_.targets.size(); ++i) {
+            setParameterValue(morphState_.targets[i].parameterId,
+                              morphState_.endValues[i]);
+        }
+        cancelMorph();
+        return;
+    }
+
+    // 计算缓动进度
+    float t = static_cast<float>(morphState_.elapsedMs) /
+              static_cast<float>(morphState_.durationMs);
+    t = juce::jlimit(0.0f, 1.0f, t);
+
+    // 三次缓入缓出 (cubic ease-in-out)
+    float eased;
+    if (t < 0.5f) {
+        eased = 4.0f * t * t * t;
+    } else {
+        float f = (2.0f * t - 2.0f);
+        eased = 1.0f - f * f * f * 0.5f;
+    }
+
+    // 插值并设置参数
+    for (size_t i = 0; i < morphState_.targets.size(); ++i) {
+        float interpolated = morphState_.startValues[i] +
+            (morphState_.endValues[i] - morphState_.startValues[i]) * eased;
+        setParameterValue(morphState_.targets[i].parameterId, interpolated);
+    }
+}
+
 } // namespace LianCore

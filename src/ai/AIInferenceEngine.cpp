@@ -2,7 +2,6 @@
 // LianCore - AIInferenceEngine 实现 (Beta阶段: ONNX Runtime + 规则引擎回退)
 // =============================================================================
 #include "AIInferenceEngine.h"
-#include "../params/ParameterTree.h"
 #include "../utils/AudioUtils.h"
 #include <unordered_set>
 
