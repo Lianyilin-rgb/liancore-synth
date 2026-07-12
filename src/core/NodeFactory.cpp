@@ -17,6 +17,13 @@
 // 信号处理节点
 #include "FilterProcessor.h"
 
+// 信号处理节点 (Beta Week 2 - 效果器链)
+#include "Distortion.h"
+#include "Delay.h"
+#include "Reverb.h"
+#include "Compressor.h"
+#include "EQ.h"
+
 // 调制节点
 #include "EnvelopeGenerator.h"
 #include "LFOGenerator.h"
@@ -102,13 +109,31 @@ std::unique_ptr<AudioNode> NodeFactory::createNode(NodeType type, const juce::St
             break;
 
         // =====================================================================
-        // 待实现 (Release阶段)
+        // 效果器链 (Beta Week 2实现)
         // =====================================================================
         case NodeType::Distortion:
+            node = std::make_unique<Distortion>(nodeName);
+            break;
+
         case NodeType::Delay:
+            node = std::make_unique<Delay>(nodeName);
+            break;
+
         case NodeType::Reverb:
+            node = std::make_unique<Reverb>(nodeName);
+            break;
+
         case NodeType::Compressor:
+            node = std::make_unique<Compressor>(nodeName);
+            break;
+
         case NodeType::EQ:
+            node = std::make_unique<EQ>(nodeName);
+            break;
+
+        // =====================================================================
+        // 待实现 (Release阶段)
+        // =====================================================================
         case NodeType::MacroControl:
         case NodeType::Splitter:
         case NodeType::AudioInput:

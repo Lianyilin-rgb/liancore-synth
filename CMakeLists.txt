@@ -75,6 +75,12 @@ juce_add_plugin(LianCore
         src/synthesis/VirtualAnalogOscillator.cpp
         src/synthesis/NoiseGenerator.cpp
         src/synthesis/FilterProcessor.cpp
+        # Beta Week 2 效果器链
+        src/synthesis/Distortion.cpp
+        src/synthesis/Delay.cpp
+        src/synthesis/Reverb.cpp
+        src/synthesis/Compressor.cpp
+        src/synthesis/EQ.cpp
         # Beta 阶段新增合成引擎
         src/synthesis/SpectralOscillator.cpp
         src/synthesis/GranularPlayer.cpp
@@ -91,11 +97,13 @@ juce_add_plugin(LianCore
         # 参数系统
         src/params/ParameterTree.cpp
         src/params/PresetManager.cpp
+        src/params/ParameterMapping.cpp
 
         # AI推理层
         src/ai/AIInferenceEngine.cpp
         src/ai/TextTokenizer.cpp
         src/ai/ParameterSpaceMapper.cpp
+        src/ai/AIModelTrainer.cpp
 
         # 插件入口
         src/plugin/PluginProcessor.cpp
