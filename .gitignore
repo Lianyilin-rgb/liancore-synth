@@ -54,6 +54,15 @@ Resources/ui/
 *.key
 credentials.json
 
+# 大型数据文件 (SQLite数据库、生成报告)
+data/*.db
+data/*.sqlite
+preset_generation_report.json
+
+# Playwright 测试结果
+ui/test-results/
+ui/playwright-report/
+
 # OS
 .DS_Store
 Thumbs.db
