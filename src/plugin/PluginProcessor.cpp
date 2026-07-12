@@ -13,6 +13,9 @@ PluginProcessor::PluginProcessor()
 {
     // 初始化默认音频图
     initializeDefaultGraph();
+
+    // Gamma: 自动加载 ONNX AI 模型
+    initializeAI();
 }
 
 PluginProcessor::~PluginProcessor() = default;
@@ -176,6 +179,73 @@ double PluginProcessor::getCpuUsage() const {
 
 size_t PluginProcessor::getMemoryUsage() const {
     return audioGraph_.getTotalMemoryUsage();
+}
+
+// =============================================================================
+// Gamma: ONNX AI 模型自动加载
+// =============================================================================
+
+juce::File PluginProcessor::getModelDirectory() const {
+    // 1. 尝试从插件二进制文件所在目录查找
+    //    (JUCE 插件在不同宿主中以不同方式加载)
+    // 2. 回退到当前工作目录
+    // 3. 回退到项目根目录
+
+    juce::File binaryDir = juce::File::getSpecialLocation(
+        juce::File::currentExecutableFile).getParentDirectory();
+
+    // 检查 models/ 子目录
+    juce::File modelsDir = binaryDir.getChildFile("models");
+    if (modelsDir.exists() && modelsDir.getChildFile("liancore_ai_model.onnx").exists()) {
+        return modelsDir;
+    }
+
+    // 回退: 当前工作目录
+    juce::File cwd = juce::File::getCurrentWorkingDirectory();
+    juce::File cwdModels = cwd.getChildFile("models");
+    if (cwdModels.exists() && cwdModels.getChildFile("liancore_ai_model.onnx").exists()) {
+        return cwdModels;
+    }
+
+    // 回退: 项目根目录 (开发模式)
+    juce::File projectRoot = cwd;
+    while (projectRoot.getParentDirectory().exists() && !projectRoot.isRoot()) {
+        if (projectRoot.getChildFile("models").exists() &&
+            projectRoot.getChildFile("models").getChildFile("liancore_ai_model.onnx").exists()) {
+            return projectRoot.getChildFile("models");
+        }
+        if (projectRoot.getFileName() == "LianCore") {
+            return projectRoot.getChildFile("models");
+        }
+        projectRoot = projectRoot.getParentDirectory();
+    }
+
+    return modelsDir; // 返回默认路径
+}
+
+void PluginProcessor::initializeAI() {
+    juce::File modelsDir = getModelDirectory();
+    juce::File modelPath = modelsDir.getChildFile("liancore_ai_model.onnx");
+
+    if (modelPath.existsAsFile()) {
+        juce::String modelPathStr = modelPath.getFullPathName();
+        bool loaded = aiEngine_.loadOnnxModel(modelPathStr.toStdString());
+
+        if (loaded) {
+            DBG("LianCore: ONNX AI model loaded from " << modelPathStr);
+            DBG("  Model info: " << aiEngine_.getModelInfo());
+        } else {
+            DBG("LianCore: Failed to load ONNX model from " << modelPathStr);
+            DBG("  Falling back to rule-based inference");
+        }
+    } else {
+        DBG("LianCore: ONNX model not found at " << modelPath.getFullPathName());
+        DBG("  Using rule-based inference as fallback");
+    }
+}
+
+bool PluginProcessor::isAIModelLoaded() const {
+    return aiEngine_.isModelLoaded();
 }
 
 } // namespace LianCore

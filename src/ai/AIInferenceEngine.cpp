@@ -84,6 +84,11 @@ bool AIInferenceEngine::loadModel(const juce::File& onnxFile) {
 #endif
 }
 
+// Gamma: std::string 路径版本包装
+bool AIInferenceEngine::loadOnnxModel(const std::string& onnxPath) {
+    return loadModel(juce::File(onnxPath));
+}
+
 void AIInferenceEngine::unloadModel() {
 #ifdef LIANCORE_HAS_ONNX
     ortSession_.reset();

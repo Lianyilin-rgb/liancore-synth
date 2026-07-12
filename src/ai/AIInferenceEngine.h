@@ -46,6 +46,7 @@ public:
     // 模型管理 (Beta阶段: ONNX Runtime + 规则引擎回退)
     // =========================================================================
     bool loadModel(const juce::File& onnxFile);
+    bool loadOnnxModel(const std::string& onnxPath); // Gamma: 字符串路径版本
     void unloadModel();
     bool isModelLoaded() const { return modelLoaded_; }
 

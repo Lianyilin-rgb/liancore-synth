@@ -60,6 +60,11 @@ public:
     double getCpuUsage() const;
     size_t getMemoryUsage() const;
 
+    // Gamma: ONNX 模型自动加载
+    void initializeAI();
+    bool isAIModelLoaded() const;
+    juce::File getModelDirectory() const;
+
 private:
     // 核心组件
     AudioGraphEngine audioGraph_;
