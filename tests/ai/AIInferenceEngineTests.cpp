@@ -527,7 +527,7 @@ TEST_CASE("AIInferenceEngine: 模型管理", "[ai][engine][model]") {
 // =============================================================================
 // 8. 关键词规则导出测试
 // =============================================================================
-TEST_CASE("OnnxModelExporter: 关键词规则导出", "[ai][onnx][rules]") {
+TEST_CASE("OnnxModelExporter: keyword rules export", "[ai][onnx][rules]") {
     SECTION("规则列表非空") {
         const auto& rules = getKeywordRulesForExport();
         REQUIRE_FALSE(rules.empty());
@@ -563,7 +563,7 @@ TEST_CASE("OnnxModelExporter: 关键词规则导出", "[ai][onnx][rules]") {
 // 9. Gamma: 端到端 ONNX 模型推理测试
 // 验证训练好的 ONNX 模型能正确推理中文描述
 // =============================================================================
-TEST_CASE("Gamma: ONNX 模型端到端推理", "[ai][gamma][onnx_e2e]") {
+TEST_CASE("Gamma: ONNX model end-to-end inference", "[ai][gamma][onnx_e2e]") {
     auto engine = createTestEngine();
 
     // 查找 ONNX 模型文件
@@ -713,9 +713,8 @@ TEST_CASE("Gamma: ONNX 模型端到端推理", "[ai][gamma][onnx_e2e]") {
     }
 
     SECTION("参数数量验证: 11个输出") {
-        auto result = engine.generateParameters("合成器");
-        // 规则引擎可能返回少于11个参数 (只返回匹配的)
-        // 但至少返回1个参数
+        auto result = engine.generateParameters("温暖的贝斯");
+        // 规则引擎至少返回匹配的参数
         REQUIRE(result.parameters.size() >= 1);
     }
 

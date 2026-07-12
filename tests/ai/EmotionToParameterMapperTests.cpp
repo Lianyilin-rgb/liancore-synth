@@ -11,7 +11,7 @@ using namespace LianCore;
 // =============================================================================
 // 测试套件 1: 锚点有效性
 // =============================================================================
-TEST_CASE("EmotionToParameterMapper: 锚点有效性", "[emotion][anchors]") {
+TEST_CASE("EmotionToParameterMapper: anchor validity", "[emotion][anchors]") {
 
     EmotionToParameterMapper mapper;
     const auto& anchors = mapper.getAnchorPresets();
@@ -62,7 +62,7 @@ TEST_CASE("EmotionToParameterMapper: 锚点有效性", "[emotion][anchors]") {
 // =============================================================================
 // 测试套件 2: 角点插值 (锚点位置应返回精确的锚点值)
 // =============================================================================
-TEST_CASE("EmotionToParameterMapper: 角点插值精确性", "[emotion][interpolation][corners]") {
+TEST_CASE("EmotionToParameterMapper: corner interpolation accuracy", "[emotion][interpolation][corners]") {
 
     EmotionToParameterMapper mapper;
     const auto& anchors = mapper.getAnchorPresets();
@@ -286,7 +286,7 @@ TEST_CASE("EmotionToParameterMapper: 边界条件", "[emotion][boundary]") {
 // =============================================================================
 // 测试套件 7: 最近锚点查找
 // =============================================================================
-TEST_CASE("EmotionToParameterMapper: 最近锚点查找", "[emotion][nearest]") {
+TEST_CASE("EmotionToParameterMapper: nearest anchor lookup", "[emotion][nearest]") {
 
     EmotionToParameterMapper mapper;
 
