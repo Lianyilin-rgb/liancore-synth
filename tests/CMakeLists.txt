@@ -36,6 +36,9 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/ai/TransformerTextEncoder.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/AudioTimbreAnalyzer.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/WavetableGenerator.cpp
+
+    # 插件层 (MPE/微音程测试依赖)
+    ${CMAKE_SOURCE_DIR}/src/plugin/PluginProcessor.cpp
 )
 
 # 配置测试目标
@@ -57,6 +60,7 @@ target_include_directories(LianCoreTests PRIVATE
 target_link_libraries(LianCoreTests PRIVATE
     Catch2::Catch2WithMain
     juce_audio_basics
+    juce_audio_processors
     juce_core
     juce_data_structures
     juce_dsp

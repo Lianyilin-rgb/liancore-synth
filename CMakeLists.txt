@@ -20,6 +20,9 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic -march=native -ffast-math)
 endif()
 
+# LianCore 无 VST2 版本，禁止 VST2/VST3 参数ID混淆
+add_definitions(-DJUCE_VST3_CAN_REPLACE_VST2=0)
+
 # =============================================================================
 # JUCE 框架配置 (本地预下载版本, 不再使用 FetchContent)
 # =============================================================================
@@ -53,6 +56,7 @@ juce_add_plugin(LianCore
     PLUGIN_MANUFACTURER_CODE Lian
     PLUGIN_CODE Lcr1
     PRODUCT_NAME "LianCore"
+    BUNDLE_ID "com.liancore.audio.liancore"
 
     # 插件格式
     FORMATS VST3 AAX AU
@@ -60,6 +64,9 @@ juce_add_plugin(LianCore
 
     # 是否需要UI
     NEEDS_WEB_BROWSER FALSE
+
+    # 禁用二进制资源编译器 (无BinaryData, 避免juceaide崩溃)
+    NEEDS_BINARY_BUILDER FALSE
 
     # 源文件
     SOURCES
