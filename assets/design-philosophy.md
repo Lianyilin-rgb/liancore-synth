@@ -1,0 +1,13 @@
+# Resonant Geometry
+
+## A Design Philosophy for LianCore
+
+The visual language of sound itself — frequencies rendered as form, harmonics as spatial rhythm. Resonant Geometry treats audio synthesis not as a technical process but as a visual phenomenon: waveforms become architecture, spectral energy becomes color fields, and modulation becomes layered pattern. Every shape on the canvas is a frozen moment of sound, meticulously crafted to communicate the depth and precision of a world-class audio instrument.
+
+Color emerges from the electromagnetic spectrum of sound — deep indigo for sub-bass frequencies, electric cyan for bright harmonics, warm amber for mid-range resonance. These colors do not decorate; they encode information. A professional producer should feel the tonal character of a patch before hearing a single note. The palette is restrained to four chromatic anchors, applied with the discipline of a mastering engineer — nothing extraneous, every hue intentional. The result of painstaking chromatic calibration by someone at the absolute peak of their craft.
+
+Form follows the mathematics of synthesis. Sine waves, sawtooth harmonics, and spectral partials are not illustrated literally — they are abstracted into pure geometric language. Concentric circles suggest oscillation, stacked horizontal bands evoke spectral analysis, and diagonal interruptions signal modulation. The composition breathes with the negative space of silence, treating emptiness as an active element — the canvas equivalent of a noise gate. Every alignment, every proportion, the product of countless refinements.
+
+Typography exists as visual punctuation, not explanation. The logotype "LIANCORE" is set in a geometric sans-serif, kerned with the precision of a phase-coherent oscillator. Characters are spaced to suggest waveform periodicity — tight where frequencies cluster, open where harmonics spread. The tagline, if present, is a whisper: a single line of small, essential text that anchors the visual architecture without demanding attention. Words serve the design, never the reverse.
+
+The final work must feel like an artifact from a future where sound and vision are one discipline. It must appear labored over with obsessive care — the kind of object a master craftsperson produces after decades of refinement. Every curve, every gradient boundary, every alignment must be flawless. The viewer should sense that countless hours of meticulous adjustment produced this result, that someone at the absolute top of their field poured their entire expertise into every pixel. This is not a logo; it is a definitive statement of identity.

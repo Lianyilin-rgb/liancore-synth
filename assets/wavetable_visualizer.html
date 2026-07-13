@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LianCore - Spectral Morphogenesis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --anthropic-dark: #141413;
+            --anthropic-light: #faf9f5;
+            --anthropic-mid-gray: #b0aea5;
+            --anthropic-light-gray: #e8e6dc;
+            --anthropic-orange: #d97757;
+            --anthropic-blue: #6a9bcc;
+            --anthropic-green: #788c5d;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--anthropic-light) 0%, #f5f3ee 100%);
+            min-height: 100vh; color: var(--anthropic-dark);
+        }
+        .container { display: flex; min-height: 100vh; padding: 20px; gap: 20px; }
+        .sidebar {
+            width: 320px; flex-shrink: 0;
+            background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
+            padding: 24px; border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(20,20,19,0.1);
+            overflow-y: auto; overflow-x: hidden;
+        }
+        .sidebar h1 { font-family: 'Lora', serif; font-size: 24px; font-weight: 500; margin-bottom: 8px; }
+        .sidebar .subtitle { color: var(--anthropic-mid-gray); font-size: 14px; margin-bottom: 32px; line-height: 1.4; }
+        .control-section { margin-bottom: 32px; }
+        .control-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .control-section h3::before { content: '•'; color: var(--anthropic-orange); font-weight: bold; }
+        .seed-input {
+            width: 100%; background: var(--anthropic-light); padding: 12px; border-radius: 8px;
+            font-family: 'Courier New', monospace; font-size: 14px; margin-bottom: 12px;
+            border: 1px solid var(--anthropic-light-gray); text-align: center;
+        }
+        .seed-input:focus { outline: none; border-color: var(--anthropic-orange); box-shadow: 0 0 0 2px rgba(217,119,87,0.1); background: white; }
+        .seed-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+        .slider-container { display: flex; align-items: center; gap: 12px; }
+        .slider-container input[type="range"] { flex: 1; height: 4px; background: var(--anthropic-light-gray); border-radius: 2px; outline: none; -webkit-appearance: none; }
+        .slider-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--anthropic-orange); border-radius: 50%; cursor: pointer; transition: all 0.2s ease; }
+        .slider-container input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); background: #c86641; }
+        .value-display { font-family: 'Courier New', monospace; font-size: 12px; color: var(--anthropic-mid-gray); min-width: 60px; text-align: right; }
+        .color-group { margin-bottom: 16px; }
+        .color-group label { display: block; font-size: 12px; color: var(--anthropic-mid-gray); margin-bottom: 4px; }
+        .color-picker-container { display: flex; align-items: center; gap: 8px; }
+        .color-picker-container input[type="color"] { width: 32px; height: 32px; border: none; border-radius: 6px; cursor: pointer; background: none; padding: 0; }
+        .color-value { font-family: 'Courier New', monospace; font-size: 12px; color: var(--anthropic-mid-gray); }
+        .button { background: var(--anthropic-orange); color: white; border: none; padding: 10px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; width: 100%; }
+        .button:hover { background: #c86641; transform: translateY(-1px); }
+        .button:active { transform: translateY(0); }
+        .button.secondary { background: var(--anthropic-blue); }
+        .button.secondary:hover { background: #5a8bb8; }
+        .button.tertiary { background: var(--anthropic-green); }
+        .button.tertiary:hover { background: #6b7b52; }
+        .button-row { display: flex; gap: 8px; }
+        .button-row .button { flex: 1; }
+        .canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+        #canvas-container { width: 100%; max-width: 1000px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(20,20,19,0.1); background: white; }
+        #canvas-container canvas { display: block; width: 100% !important; height: auto !important; }
+        .loading { display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--anthropic-mid-gray); }
+        @media (max-width: 600px) { .container { flex-direction: column; } .sidebar { width: 100%; } .canvas-area { padding: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Spectral Morphogenesis</h1>
+            <div class="subtitle">LianCore Wavetable Visualizer — harmonics evolve, waveforms emerge, sound becomes form.</div>
+            <div class="control-section">
+                <h3>Seed</h3>
+                <input type="number" id="seed-input" class="seed-input" value="42" onchange="updateSeed()">
+                <div class="seed-controls">
+                    <button class="button secondary" onclick="previousSeed()">← Prev</button>
+                    <button class="button secondary" onclick="nextSeed()">Next →</button>
+                </div>
+                <button class="button tertiary regen-button" onclick="randomSeedAndUpdate()">↻ Random</button>
+            </div>
+            <div class="control-section">
+                <h3>Parameters</h3>
+                <div class="control-group">
+                    <label>Harmonics</label>
+                    <div class="slider-container">
+                        <input type="range" id="harmonics" min="1" max="32" step="1" value="16" oninput="updateParam('harmonics', this.value)">
+                        <span class="value-display" id="harmonics-value">16</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Modulation Depth</label>
+                    <div class="slider-container">
+                        <input type="range" id="modDepth" min="0" max="100" step="1" value="40" oninput="updateParam('modDepth', this.value)">
+                        <span class="value-display" id="modDepth-value">40</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>LFO Rate</label>
+                    <div class="slider-container">
+                        <input type="range" id="lfoRate" min="1" max="20" step="1" value="5" oninput="updateParam('lfoRate', this.value)">
+                        <span class="value-display" id="lfoRate-value">5</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Wave Complexity</label>
+                    <div class="slider-container">
+                        <input type="range" id="complexity" min="1" max="10" step="1" value="5" oninput="updateParam('complexity', this.value)">
+                        <span class="value-display" id="complexity-value">5</span>
+                    </div>
+                </div>
+            </div>
+            <div class="control-section">
+                <h3>Colors</h3>
+                <div class="color-group">
+                    <label>Waveform Color</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color1" value="#00d4ff" onchange="updateColor('color1', this.value)">
+                        <span class="color-value" id="color1-value">#00d4ff</span>
+                    </div>
+                </div>
+                <div class="color-group">
+                    <label>Harmonic Color</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color2" value="#7b68ee" onchange="updateColor('color2', this.value)">
+                        <span class="color-value" id="color2-value">#7b68ee</span>
+                    </div>
+                </div>
+                <div class="color-group">
+                    <label>Accent Color</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color3" value="#ff8c42" onchange="updateColor('color3', this.value)">
+                        <span class="color-value" id="color3-value">#ff8c42</span>
+                    </div>
+                </div>
+            </div>
+            <div class="control-section">
+                <h3>Actions</h3>
+                <div class="button-row">
+                    <button class="button" onclick="resetParameters()">Reset</button>
+                </div>
+            </div>
+        </div>
+        <div class="canvas-area">
+            <div id="canvas-container">
+                <div class="loading">Initializing spectral morphogenesis...</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let params = {
+            seed: 42,
+            harmonics: 16,
+            modDepth: 40,
+            lfoRate: 5,
+            complexity: 5,
+            colorPalette: ['#00d4ff', '#7b68ee', '#ff8c42']
+        };
+        let defaultParams = JSON.parse(JSON.stringify(params));
+        let time = 0;
+        let waves = [];
+        let spectralBands = [];
+
+        function setup() {
+            let canvas = createCanvas(1000, 800);
+            canvas.parent('canvas-container');
+            initializeSystem();
+            document.querySelector('.loading').style.display = 'none';
+        }
+
+        function initializeSystem() {
+            randomSeed(params.seed);
+            noiseSeed(params.seed);
+            time = 0;
+            waves = [];
+            for (let i = 0; i < 8; i++) {
+                waves.push({
+                    phase: random(TWO_PI),
+                    phaseSpeed: 0.02 + random(0.05),
+                    amp: 0.3 + random(0.7),
+                    offset: random(-100, 100),
+                    color: params.colorPalette[i % 3]
+                });
+            }
+            spectralBands = [];
+            for (let i = 0; i < 64; i++) {
+                spectralBands.push({
+                    base: 20 + i * 310,
+                    energy: 0,
+                    target: 0,
+                    color: lerpColor(
+                        color(params.colorPalette[0]),
+                        color(params.colorPalette[1]),
+                        i / 63
+                    )
+                });
+            }
+        }
+
+        function draw() {
+            background(10, 10, 26);
+            time += 0.016;
+            let lfo = sin(time * params.lfoRate * 0.2) * params.modDepth * 0.01;
+            let lfo2 = cos(time * params.lfoRate * 0.13) * params.modDepth * 0.01;
+
+            // Draw spectral bands (bottom half)
+            push();
+            translate(0, 400);
+            for (let i = 0; i < 64; i++) {
+                let target = 0;
+                for (let h = 1; h <= params.harmonics; h++) {
+                    let freq = h * (i + 1) * 0.5;
+                    target += abs(sin(freq * time * 0.3 + i * 0.1)) * (1.0 / h);
+                }
+                target *= 0.5 + 0.5 * lfo;
+                spectralBands[i].target = target;
+                spectralBands[i].energy = lerp(spectralBands[i].energy, target, 0.1);
+                let h = spectralBands[i].energy * 300;
+                let alpha = map(spectralBands[i].energy, 0, 1, 30, 200);
+                let c = spectralBands[i].color;
+                c.setAlpha(alpha);
+                fill(c);
+                noStroke();
+                rect(i * 15.6, 380 - h, 14, h);
+            }
+            pop();
+
+            // Draw waveform layers (top half)
+            push();
+            translate(500, 200);
+            for (let waveIdx = 0; waveIdx < params.complexity; waveIdx++) {
+                let w = waves[waveIdx % waves.length];
+                let c = color(w.color);
+                c.setAlpha(180);
+                stroke(c);
+                strokeWeight(1.5 + waveIdx * 0.3);
+                noFill();
+                beginShape();
+                for (let x = -480; x <= 480; x += 2) {
+                    let t = map(x, -480, 480, 0, TWO_PI * 4);
+                    let y = 0;
+                    let amp = w.amp * (1 - waveIdx * 0.12);
+                    for (let h = 1; h <= params.harmonics; h++) {
+                        let harmonicAmp = 1.0 / pow(h, 0.7 + waveIdx * 0.1);
+                        let hPhase = w.phase * h + lfo * h * 0.5 + lfo2 * h * 0.3;
+                        y += sin(t * h + hPhase) * harmonicAmp * amp * 100;
+                    }
+                    vertex(x, y + w.offset);
+                }
+                endShape();
+                w.phase += w.phaseSpeed;
+            }
+            pop();
+
+            // Draw center resonance rings
+            push();
+            translate(500, 200);
+            noFill();
+            for (let r = 1; r <= 6; r++) {
+                let radius = r * 60 + sin(time * 2 + r) * 10;
+                let alpha = map(r, 1, 6, 60, 15);
+                stroke(params.colorPalette[2]);
+                strokeWeight(0.5);
+                let c = color(params.colorPalette[2]);
+                c.setAlpha(alpha);
+                stroke(c);
+                circle(0, 0, radius * 2);
+            }
+            // Center dot
+            let c = color(params.colorPalette[0]);
+            c.setAlpha(200);
+            fill(c);
+            noStroke();
+            circle(0, 0, 6);
+            pop();
+
+            // Draw frequency labels
+            push();
+            fill(180, 180, 200, 100);
+            noStroke();
+            textFont('Courier New');
+            textSize(10);
+            textAlign(CENTER, CENTER);
+            text("20Hz", 30, 770);
+            text("200Hz", 230, 770);
+            text("1kHz", 500, 770);
+            text("5kHz", 700, 770);
+            text("20kHz", 950, 770);
+            textAlign(LEFT, CENTER);
+            text("LIANCORE", 20, 30);
+            textSize(9);
+            text("SPECTRAL MORPHOGENESIS", 20, 48);
+            pop();
+        }
+
+        function updateParam(paramName, value) {
+            let numVal = parseFloat(value);
+            params[paramName] = numVal;
+            document.getElementById(paramName + '-value').textContent = numVal;
+            if (paramName === 'harmonics' || paramName === 'complexity') {
+                initializeSystem();
+            }
+        }
+
+        function updateColor(colorId, value) {
+            let idx = parseInt(colorId.replace('color', '')) - 1;
+            params.colorPalette[idx] = value;
+            document.getElementById(colorId + '-value').textContent = value;
+            initializeSystem();
+        }
+
+        function updateSeedDisplay() {
+            document.getElementById('seed-input').value = params.seed;
+        }
+
+        function updateSeed() {
+            let input = document.getElementById('seed-input');
+            let newSeed = parseInt(input.value);
+            if (newSeed && newSeed > 0) {
+                params.seed = newSeed;
+                initializeSystem();
+            } else {
+                updateSeedDisplay();
+            }
+        }
+
+        function previousSeed() {
+            params.seed = Math.max(1, params.seed - 1);
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function nextSeed() {
+            params.seed = params.seed + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function randomSeedAndUpdate() {
+            params.seed = Math.floor(Math.random() * 999999) + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function resetParameters() {
+            params = JSON.parse(JSON.stringify(defaultParams));
+            document.getElementById('harmonics').value = params.harmonics;
+            document.getElementById('harmonics-value').textContent = params.harmonics;
+            document.getElementById('modDepth').value = params.modDepth;
+            document.getElementById('modDepth-value').textContent = params.modDepth;
+            document.getElementById('lfoRate').value = params.lfoRate;
+            document.getElementById('lfoRate-value').textContent = params.lfoRate;
+            document.getElementById('complexity').value = params.complexity;
+            document.getElementById('complexity-value').textContent = params.complexity;
+            document.getElementById('color1').value = params.colorPalette[0];
+            document.getElementById('color1-value').textContent = params.colorPalette[0];
+            document.getElementById('color2').value = params.colorPalette[1];
+            document.getElementById('color2-value').textContent = params.colorPalette[1];
+            document.getElementById('color3').value = params.colorPalette[2];
+            document.getElementById('color3-value').textContent = params.colorPalette[2];
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        window.addEventListener('load', function() {
+            updateSeedDisplay();
+        });
+    </script>
+</body>
+</html>
