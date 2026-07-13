@@ -72,17 +72,6 @@ public:
     bool isMPEEnabled() const;
     juce::MPEInstrument& getMPEInstrument() { return mpeInstrument_; }
 
-    // =========================================================================
-    // 微音程/调音支持
-    // =========================================================================
-    bool loadScalaFile(const juce::String& filePath);
-    bool loadScalaFile(const juce::File& file);
-    void setTuningFrequency(double frequencyHz, int midiNote);
-    void resetTuningToDefault();
-    bool isTuningLoaded() const;
-    juce::Tuning& getTuning() { return tuning_; }
-    const juce::String& getTuningName() const { return tuningName_; }
-
 private:
     // 核心组件
     AudioGraphEngine audioGraph_;
@@ -94,11 +83,6 @@ private:
     // MPE 支持
     juce::MPEInstrument mpeInstrument_;
     bool mpeEnabled_ = false;
-
-    // 微音程支持
-    juce::Tuning tuning_;
-    juce::String tuningName_;
-    bool tuningLoaded_ = false;
 
     // 合成链节点ID
     NodeId oscNodeId_;

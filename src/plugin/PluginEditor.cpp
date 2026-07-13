@@ -45,7 +45,7 @@ void UIMessageServer::stop() {
 void UIMessageServer::run() {
     while (running_ && !threadShouldExit()) {
         // 接受新连接
-        if (auto* newSocket = socket_.waitForNextSocketConnecting(100)) {
+        if (auto* newSocket = socket_.waitForNextConnection()) {
             DBG("[LianCore] Web UI 已连接");
             auto client = std::make_unique<ClientConnection>();
             client->socket.reset(newSocket);
@@ -96,13 +96,14 @@ void UIMessageServer::sendToUI(const juce::String& type, const juce::var& payloa
     msg.setProperty("payload", payload);
     msg.setProperty("timestamp", juce::Time::getCurrentTime().toMilliseconds());
 
-    auto jsonStr = juce::JSON::toString(msg);
+    auto jsonStr = juce::JSON::toString(juce::var(new juce::DynamicObject(std::move(msg))));
 
     // WebSocket帧封装: text frame, FIN=1, opcode=1, mask=0(server→client)
     juce::MemoryBlock frame;
     frame.append("\x81", 1); // FIN + Text opcode
     if (jsonStr.length() < 126) {
-        frame.append(juce::String::charToString(static_cast<char>(jsonStr.length())), 1);
+        auto lenByte = static_cast<char>(jsonStr.length());
+        frame.append(&lenByte, 1);
     } else if (jsonStr.length() < 65536) {
         frame.append("\x7E", 1);
         uint16_t len = static_cast<uint16_t>(jsonStr.length());
@@ -127,14 +128,13 @@ void UIMessageServer::broadcastStatus(double cpuMs, size_t memoryBytes) {
     juce::DynamicObject status;
     status.setProperty("usage", cpuMs);
     status.setProperty("mb", static_cast<double>(memoryBytes) / 1024.0 / 1024.0);
-    sendToUI("cpu_usage", status);
+    sendToUI("cpu_usage", juce::var(new juce::DynamicObject(std::move(status))));
 }
 
 // 简单WebSocket帧解析 (server端, 客户端发送的是masked帧)
 static juce::String parseWebSocketMessage(juce::String& buffer) {
-    auto utf8 = buffer.toUTF8();
-    const uint8_t* data = reinterpret_cast<const uint8_t*>(utf8.getAddress());
-    size_t size = utf8.size();
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(buffer.toRawUTF8());
+    size_t size = buffer.getNumBytesAsUTF8();
 
     if (size < 2) return {};
 
@@ -169,7 +169,7 @@ static juce::String parseWebSocketMessage(juce::String& buffer) {
             decoded[i] = payload[i] ^ mask[i % 4];
         }
     } else {
-        decoded.copyFrom(data + headerSize, static_cast<size_t>(payloadLen));
+        std::memcpy(decoded.getData(), data + headerSize, static_cast<size_t>(payloadLen));
     }
 
     // 移除已处理的数据
@@ -356,11 +356,11 @@ void PluginEditor::setupMessageHandlers() {
             p.setProperty("parameterId", param.parameterId);
             p.setProperty("value", param.value);
             p.setProperty("explanation", param.explanation);
-            params.add(p);
+            params.add(juce::var(new juce::DynamicObject(std::move(p))));
         }
         resultObj.setProperty("parameters", params);
 
-        uiServer_.sendToUI("ai_generate_result", resultObj);
+        uiServer_.sendToUI("ai_generate_result", juce::var(new juce::DynamicObject(std::move(resultObj))));
     });
 
     // 预设列表请求
@@ -377,23 +377,24 @@ void PluginEditor::setupMessageHandlers() {
 
             juce::Array<juce::var> tags;
             for (const auto& tag : preset.tags) {
-                tags.add(tag);
+                tags.add(juce::String::charToString(tag));
             }
             p.setProperty("tags", tags);
             p.setProperty("rating", preset.rating);
-            presetList.add(p);
+            presetList.add(juce::var(new juce::DynamicObject(std::move(p))));
         }
 
         juce::DynamicObject resp;
         resp.setProperty("presets", presetList);
-        uiServer_.sendToUI("preset_list", resp);
+        uiServer_.sendToUI("preset_list", juce::var(new juce::DynamicObject(std::move(resp))));
     });
 
     // 预设加载请求
     uiServer_.onMessage("preset_load", [this](const juce::var& payload) {
         int presetId = payload.getProperty("presetId", 0);
         auto& presetManager = processor_.getPresetManager();
-        if (presetManager.loadPreset(presetId)) {
+        PresetEntry entry;
+        if (presetManager.loadPreset(presetId, entry)) {
             uiServer_.sendToUI("preset_load", juce::var("ok"));
         }
     });
@@ -404,7 +405,10 @@ void PluginEditor::setupMessageHandlers() {
         juce::String category = payload.getProperty("category", "");
         // 保存当前状态为预设
         auto& presetManager = processor_.getPresetManager();
-        presetManager.savePreset(name, category);
+        PresetEntry entry;
+        entry.name = name;
+        entry.category = category;
+        presetManager.savePreset(entry);
         uiServer_.sendToUI("preset_list", juce::var());
     });
 
@@ -452,7 +456,7 @@ void PluginEditor::setupMessageHandlers() {
         ack.setProperty("energy", energy);
         ack.setProperty("tension", tension);
         ack.setProperty("paramCount", static_cast<int>(emotionParams.size()));
-        uiServer_.sendToUI("emotion_applied", ack);
+        uiServer_.sendToUI("emotion_applied", juce::var(new juce::DynamicObject(std::move(ack))));
     });
 
     // 联合生成请求 (文本 + 情感) (Beta Week 6)
@@ -498,7 +502,7 @@ void PluginEditor::setupMessageHandlers() {
             p.setProperty("parameterId", param.parameterId);
             p.setProperty("value", param.value);
             p.setProperty("explanation", param.explanation);
-            params.add(p);
+            params.add(juce::var(new juce::DynamicObject(std::move(p))));
         }
         resultObj.setProperty("parameters", params);
 
@@ -506,7 +510,7 @@ void PluginEditor::setupMessageHandlers() {
         resultObj.setProperty("inferenceTimeMs", ai.getLastInferenceTimeMs());
         resultObj.setProperty("modelInfo", ai.getModelInfo());
 
-        uiServer_.sendToUI("ai_generate_result", resultObj);
+        uiServer_.sendToUI("ai_generate_result", juce::var(new juce::DynamicObject(std::move(resultObj))));
     });
 
     // =========================================================================
@@ -546,7 +550,7 @@ void PluginEditor::setupMessageHandlers() {
         juce::DynamicObject ack;
         ack.setProperty("targetCount", static_cast<int>(targets.size()));
         ack.setProperty("durationMs", durationMs);
-        uiServer_.sendToUI("morph_started", ack);
+        uiServer_.sendToUI("morph_started", juce::var(new juce::DynamicObject(std::move(ack))));
     });
 
     // =========================================================================
@@ -587,7 +591,7 @@ void PluginEditor::pushOnnxStatus() {
 #endif
     );
 
-    uiServer_.sendToUI("onnx_status", status);
+    uiServer_.sendToUI("onnx_status", juce::var(new juce::DynamicObject(std::move(status))));
 }
 
 // =============================================================================
@@ -597,7 +601,7 @@ void PluginEditor::pushMorphProgress(float progress, const juce::String& status)
     juce::DynamicObject info;
     info.setProperty("progress", progress);
     info.setProperty("status", status);
-    uiServer_.sendToUI("morph_progress", info);
+    uiServer_.sendToUI("morph_progress", juce::var(new juce::DynamicObject(std::move(info))));
 }
 
 // =============================================================================

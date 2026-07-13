@@ -156,9 +156,9 @@ void EQ::releaseResources() {
 
 // 归一化值 [0, 1] -> 频率 [20Hz, 20000Hz] 对数刻度
 float EQ::frequencyToHz(float normalized) const {
-    static constexpr float kMinFreq = 20.0f;
-    static constexpr float kMaxFreq = 20000.0f;
-    static constexpr float kLogRange = std::log(kMaxFreq / kMinFreq); // ln(1000)
+    static const float kMinFreq = 20.0f;
+    static const float kMaxFreq = 20000.0f;
+    static const float kLogRange = std::log(kMaxFreq / kMinFreq); // ln(1000)
 
     float clamped = AudioUtils::clamp(normalized, 0.0f, 1.0f);
     return kMinFreq * std::exp(clamped * kLogRange);
@@ -166,9 +166,9 @@ float EQ::frequencyToHz(float normalized) const {
 
 // 频率 [20Hz, 20000Hz] -> 归一化值 [0, 1] 对数刻度
 float EQ::hzToFrequency(float hz) const {
-    static constexpr float kMinFreq = 20.0f;
-    static constexpr float kMaxFreq = 20000.0f;
-    static constexpr float kLogRange = std::log(kMaxFreq / kMinFreq); // ln(1000)
+    static const float kMinFreq = 20.0f;
+    static const float kMaxFreq = 20000.0f;
+    static const float kLogRange = std::log(kMaxFreq / kMinFreq); // ln(1000)
 
     float clamped = AudioUtils::clamp(hz, kMinFreq, kMaxFreq);
     return std::log(clamped / kMinFreq) / kLogRange;

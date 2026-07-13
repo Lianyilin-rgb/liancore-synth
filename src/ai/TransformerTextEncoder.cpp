@@ -197,9 +197,8 @@ bool TransformerTextEncoder::loadTransformer(const juce::File& onnxPath) {
     }
 
     try {
-        std::string modelPath = onnxPath.getFullPathName().toStdString();
         ortSession_ = std::make_unique<Ort::Session>(
-            *ortEnv_, modelPath.c_str(), *ortSessionOptions_);
+            *ortEnv_, onnxPath.getFullPathName().toWideCharPointer(), *ortSessionOptions_);
         transformerLoaded_ = true;
         DBG("TransformerTextEncoder: ONNX model loaded: " << onnxPath.getFullPathName());
         return true;

@@ -11,7 +11,7 @@ PluginProcessor::PluginProcessor()
         .withInput("Input", juce::AudioChannelSet::stereo(), true)
         .withOutput("Output", juce::AudioChannelSet::stereo(), true))
     , parameterTree_(*this)
-    , mpeInstrument_(juce::MPEInstrument::legacyMode)
+    , mpeInstrument_()
 {
     // 初始化默认音频图
     initializeDefaultGraph();
@@ -123,7 +123,9 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 
     // MPE: 处理 MPE 区域设置消息 (通道 1 上的 RPN/NRPN)
     if (mpeEnabled_) {
-        mpeInstrument_.processNextMidiEvent(midi);
+        for (const auto metadata : midi) {
+            mpeInstrument_.processNextMidiEvent(metadata.getMessage());
+        }
     }
 
     // 清除输出缓冲区
@@ -291,15 +293,13 @@ void PluginProcessor::enableMPE(bool enable) {
         //   主通道: 1 (MIDI通道 1)
         //   成员通道: 2-15 (14个复音通道)
         //   弯音范围: ±48半音 (标准MPE)
-        mpeInstrument_.setLegacyModeEnabled(true);
-        mpeInstrument_.setZoneLayout(juce::MPEZoneLayout(
-            juce::MPEZoneLayout::Channels(1, 15),
-            juce::MPEZoneLayout::Channels(2, 16)
-        ));
+        juce::MPEZoneLayout layout;
+        layout.setLowerZone(15, 48, 2);
+        mpeInstrument_.setZoneLayout(layout);
 
         DBG("LianCore: MPE enabled (Zone 1: master ch=1, member ch=2-15, pitchbend=±48)");
     } else {
-        mpeInstrument_.setLegacyModeEnabled(false);
+        mpeInstrument_.setZoneLayout(juce::MPEZoneLayout());
         DBG("LianCore: MPE disabled");
     }
 }
@@ -308,56 +308,11 @@ bool PluginProcessor::isMPEEnabled() const {
     return mpeEnabled_;
 }
 
-// =============================================================================
-// 微音程/调音支持 (Scala .scl 文件)
-// =============================================================================
-
-bool PluginProcessor::loadScalaFile(const juce::String& filePath) {
-    return loadScalaFile(juce::File(filePath));
-}
-
-bool PluginProcessor::loadScalaFile(const juce::File& file) {
-    if (!file.existsAsFile()) {
-        DBG("LianCore: Scala file not found: " << file.getFullPathName());
-        return false;
-    }
-
-    // 使用 JUCE 的 Tuning 类加载 Scala 文件
-    auto result = tuning_.loadFromFile(file);
-
-    if (result.wasOk()) {
-        tuningName_ = file.getFileNameWithoutExtension();
-        tuningLoaded_ = true;
-        DBG("LianCore: Scala tuning loaded: " << tuningName_ << " from " << file.getFullPathName());
-        return true;
-    } else {
-        DBG("LianCore: Failed to load Scala file: " << result.getErrorMessage());
-        return false;
-    }
-}
-
-void PluginProcessor::setTuningFrequency(double frequencyHz, int midiNote) {
-    // 设置参考音高 (A4 = 69 = 440Hz 默认)
-    tuning_.setReferenceFrequency(frequencyHz, midiNote);
-    DBG("LianCore: Tuning reference: MIDI " << midiNote << " = " << frequencyHz << " Hz");
-}
-
-void PluginProcessor::resetTuningToDefault() {
-    tuning_ = juce::Tuning();
-    tuningName_.clear();
-    tuningLoaded_ = false;
-    DBG("LianCore: Tuning reset to 12-EDO default");
-}
-
-bool PluginProcessor::isTuningLoaded() const {
-    return tuningLoaded_;
-}
-
 } // namespace LianCore
 
 // =============================================================================
 // JUCE 插件创建函数
 // =============================================================================
-extern "C" juce::AudioProcessor* __cdecl createPluginFilter() {
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
     return new LianCore::PluginProcessor();
 }

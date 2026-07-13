@@ -7,7 +7,11 @@
 #pragma once
 
 #include <JuceHeader.h>
+#ifdef LIANCORE_HAS_ONNX
 #include <onnxruntime_cxx_api.h>
+#else
+#include "OnnxStubs.h"
+#endif
 #include <vector>
 #include <string>
 #include <memory>

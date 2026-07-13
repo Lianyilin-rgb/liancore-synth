@@ -90,14 +90,14 @@ public:
 private:
     bool createTables();
     PresetEntry rowToEntry(class PreparedStatement& stmt);
-    PresetEntry rowToEntryFromRS(juce::ResultSet& rs);
+    // JUCE 8 removed ResultSet, using raw sqlite3 handles instead
 
     // 辅助: 使用参数化查询执行 SELECT 并返回结果集
     std::vector<PresetEntry> selectWithParams(
         const juce::String& sql,
         std::function<void(PreparedStatement&)> bindFn);
 
-    std::unique_ptr<juce::SQLite::Database> database_;
+    sqlite3* database_ = nullptr;  // raw sqlite3* handle (JUCE 8 removed SQLite wrapper)
     sqlite3* rawDb_ = nullptr;       // 原始 sqlite3* 句柄，供参数化查询使用
     juce::CriticalSection lock_;
 

@@ -3,6 +3,7 @@
 // 将音频Loop自动/手动切片，通过MIDI触发每个切片
 // =============================================================================
 #include "MultiSampler.h"
+#include <juce_audio_formats/juce_audio_formats.h>
 #include "../utils/AudioUtils.h"
 
 namespace LianCore {

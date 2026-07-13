@@ -3,6 +3,7 @@
 // =============================================================================
 #include "AIInferenceEngine.h"
 #include "../utils/AudioUtils.h"
+#include <juce_dsp/juce_dsp.h>
 #include <unordered_set>
 
 namespace LianCore {
@@ -43,9 +44,15 @@ bool AIInferenceEngine::loadModel(const juce::File& onnxFile) {
 
     try {
         // 加载ONNX模型
+#ifdef _WIN32
+        std::wstring modelPath = onnxFile.getFullPathName().toWideCharPointer();
+        ortSession_ = std::make_unique<Ort::Session>(
+            *ortEnv_, modelPath.c_str(), *ortSessionOptions_);
+#else
         std::string modelPath = onnxFile.getFullPathName().toStdString();
         ortSession_ = std::make_unique<Ort::Session>(
             *ortEnv_, modelPath.c_str(), *ortSessionOptions_);
+#endif
 
         // 获取输入输出名称
         Ort::AllocatorWithDefaultOptions allocator;
@@ -57,7 +64,7 @@ bool AIInferenceEngine::loadModel(const juce::File& onnxFile) {
 
         size_t numOutputs = ortSession_->GetOutputCount();
         for (size_t i = 0; i < numOutputs; ++i) {
-            auto name = ortSession_->GetOutputNameAllocated(i, numOutputs);
+            auto name = ortSession_->GetOutputNameAllocated(i, allocator);
             ortOutputNames_.push_back(name.release());
         }
 

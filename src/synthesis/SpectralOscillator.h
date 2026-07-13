@@ -5,6 +5,7 @@
 #pragma once
 
 #include "../core/AudioNode.h"
+#include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <complex>
 

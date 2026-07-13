@@ -15,6 +15,8 @@
 // ONNX Runtime C++ API
 #ifdef LIANCORE_HAS_ONNX
 #include <onnxruntime_cxx_api.h>
+#else
+#include "OnnxStubs.h"
 #endif
 
 namespace LianCore {

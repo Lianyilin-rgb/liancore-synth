@@ -2,15 +2,13 @@
 // LianCore - PresetManager 实现 (安全修复版)
 // [B5-001] 所有用户输入查询已迁移至 PreparedStatement 参数化查询
 // [B5-003] 集成 AES256Encryptor 实现加密导出/导入
+// JUCE 8 compatibility: use raw SQLite3 API (JUCE removed SQLite wrapper)
 // 参考: OWASP SQL Injection Prevention, CWE-89
 // =============================================================================
 #include "PresetManager.h"
 #include "PreparedStatement.h"
-#include "AES256Encryptor.h"
-
-extern "C" {
-#include <sqlite3.h>
-}
+#include "../security/AES256Encryptor.h"
+#include "sqlite3.h"
 
 namespace LianCore {
 
@@ -28,21 +26,22 @@ bool PresetManager::openDatabase(const juce::File& dbFile) {
         parentDir.createDirectory();
     }
 
-    // 打开 JUCE 封装的数据库 (用于简单查询)
-    database_ = std::make_unique<juce::SQLite::Database>();
-    if (!database_->open(dbFile)) return false;
-
-    // 同时打开原始 sqlite3* 句柄 (用于参数化查询)
+    // JUCE 8 已经移除了 juce::SQLite 包装，现在完全使用原生 SQLite3 API
     int rc = sqlite3_open_v2(
         dbFile.getFullPathName().toRawUTF8(),
-        &rawDb_,
+        &database_,
         SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
         nullptr
     );
-    if (rc != SQLITE_OK && rawDb_) {
-        sqlite3_close(rawDb_);
+    if (rc != SQLITE_OK) {
+        if (database_) sqlite3_close(database_);
+        database_ = nullptr;
         rawDb_ = nullptr;
+        return false;
     }
+
+    // database_ 就是 rawDb_
+    rawDb_ = database_;
 
     // 启用 WAL 模式提升并发性能
     if (rawDb_) {
@@ -55,11 +54,11 @@ bool PresetManager::openDatabase(const juce::File& dbFile) {
 
 void PresetManager::closeDatabase() {
     juce::ScopedLock sl(lock_);
-    database_.reset();
-    if (rawDb_) {
-        sqlite3_close(rawDb_);
-        rawDb_ = nullptr;
+    if (database_) {
+        sqlite3_close(database_);
     }
+    database_ = nullptr;
+    rawDb_ = nullptr;
 }
 
 bool PresetManager::isDatabaseOpen() const {
@@ -69,7 +68,7 @@ bool PresetManager::isDatabaseOpen() const {
 bool PresetManager::createTables() {
     if (!database_) return false;
 
-    database_->executeStatement(
+    const char* sql =
         "CREATE TABLE IF NOT EXISTS presets ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "name TEXT NOT NULL,"
@@ -79,26 +78,23 @@ bool PresetManager::createTables() {
         "author TEXT,"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
         "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
-        "json_data TEXT NOT NULL,"
+        "json_data TEXT,"
         "ai_prompt TEXT,"
-        "ai_confidence REAL DEFAULT 0,"
+        "ai_confidence REAL DEFAULT 0.0,"
         "rating INTEGER DEFAULT 0,"
         "usage_count INTEGER DEFAULT 0"
-        ")"
-    );
+        ");"
 
-    database_->executeStatement(
         "CREATE TABLE IF NOT EXISTS preset_history ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "preset_id INTEGER,"
-        "version INTEGER,"
+        "preset_id INTEGER NOT NULL,"
         "json_data TEXT NOT NULL,"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
-        "FOREIGN KEY (preset_id) REFERENCES presets(id)"
-        ")"
-    );
+        "FOREIGN KEY(preset_id) REFERENCES presets(id)"
+        ");";
 
-    return true;
+    int rc = sqlite3_exec(database_, sql, nullptr, nullptr, nullptr);
+    return rc == SQLITE_OK;
 }
 
 // =============================================================================
@@ -212,16 +208,19 @@ bool PresetManager::updatePreset(const PresetEntry& entry) {
 }
 
 // =============================================================================
-// getAllPresets - 无用户输入，使用 JUCE 数据库
+// getAllPresets - 使用原生 SQLite3 API (JUCE 8 removed SQLite wrapper)
 // =============================================================================
 std::vector<PresetEntry> PresetManager::getAllPresets() {
     juce::ScopedLock sl(lock_);
     std::vector<PresetEntry> result;
     if (!database_) return result;
 
-    auto rs = database_->execute("SELECT * FROM presets ORDER BY updated_at DESC LIMIT 1000");
-    while (rs.next()) {
-        result.push_back(rowToEntryFromRS(rs));
+    PreparedStatement stmt;
+    if (!stmt.prepare(database_, "SELECT * FROM presets ORDER BY updated_at DESC LIMIT 1000"))
+        return result;
+
+    while (stmt.step()) {
+        result.push_back(rowToEntry(stmt));
     }
     return result;
 }
@@ -324,9 +323,12 @@ int PresetManager::getTotalPresetCount() {
     juce::ScopedLock sl(lock_);
     if (!database_) return 0;
 
-    auto rs = database_->execute("SELECT COUNT(*) FROM presets");
-    if (rs.next()) {
-        return rs.getColumnValue(0).getIntValue();
+    PreparedStatement stmt;
+    if (!stmt.prepare(database_, "SELECT COUNT(*) FROM presets"))
+        return 0;
+
+    if (stmt.step()) {
+        return stmt.getColumnInt(0);
     }
     return 0;
 }
@@ -522,7 +524,8 @@ bool PresetManager::importPresetEncrypted(const juce::File& file,
 
     // 3. 解码盐值
     juce::MemoryBlock saltBlock;
-    if (!juce::Base64::convertFromBase64(saltBlock, saltB64)) return false;
+    juce::MemoryOutputStream saltMos(saltBlock, false);
+    if (!juce::Base64::convertFromBase64(saltMos, saltB64)) return false;
 
     std::array<uint8_t, 16> salt{};
     if (saltBlock.getSize() >= 16) {
@@ -573,25 +576,6 @@ PresetEntry PresetManager::rowToEntry(PreparedStatement& stmt) {
     entry.aiConfidence = (float)stmt.getColumnFloat(10);
     entry.rating = stmt.getColumnInt(11);
     entry.usageCount = stmt.getColumnInt(12);
-    return entry;
-}
-
-// =============================================================================
-// 结果集转换 (从 JUCE ResultSet - 兼容 getAllPresets)
-// =============================================================================
-PresetEntry PresetManager::rowToEntryFromRS(juce::ResultSet& rs) {
-    PresetEntry entry;
-    entry.id = rs.getColumnValue(0).getIntValue();
-    entry.name = rs.getColumnValue(1).toString();
-    entry.category = rs.getColumnValue(2).toString();
-    entry.tags = rs.getColumnValue(3).toString();
-    entry.description = rs.getColumnValue(4).toString();
-    entry.author = rs.getColumnValue(5).toString();
-    entry.jsonData = rs.getColumnValue(8).toString();
-    entry.aiPrompt = rs.getColumnValue(9).toString();
-    entry.aiConfidence = rs.getColumnValue(10).getFloatValue();
-    entry.rating = rs.getColumnValue(11).getIntValue();
-    entry.usageCount = rs.getColumnValue(12).getIntValue();
     return entry;
 }
 

@@ -123,7 +123,7 @@ int LianCoreParameterTree::getUndoDepth() const {
 }
 
 int LianCoreParameterTree::getRedoDepth() const {
-    return undoManager_.getNumberOfUnitsTaken();
+    return undoManager_.getNumActionsInCurrentTransaction();
 }
 
 // =============================================================================

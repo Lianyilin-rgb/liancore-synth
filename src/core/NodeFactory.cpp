@@ -30,6 +30,64 @@
 
 namespace LianCore {
 
+// =============================================================================
+// 内部辅助节点类 (定义必须在 createNode 使用之前)
+// =============================================================================
+
+// 占位节点实现 (用于未实现的节点类型)
+class PlaceholderNode : public AudioNode {
+public:
+    PlaceholderNode(NodeType type, const juce::String& name)
+        : AudioNode(type, name) {}
+
+    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override {
+        // 占位节点: 静音通过
+    }
+};
+
+// 混合器节点实现
+class MixerNode : public AudioNode {
+public:
+    MixerNode(const juce::String& name)
+        : AudioNode(NodeType::Mixer, name) {}
+
+    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) override {
+        auto& output = getOutputBuffer(0);
+        output.clear();
+
+        // 混合所有连接的输入
+        for (int i = 0; i < getNumInputPorts(); ++i) {
+            if (isPortConnected(i, true)) {
+                const auto& input = getInputBuffer(i);
+                for (int ch = 0; ch < output.getNumChannels(); ++ch) {
+                    output.addFrom(ch, 0, input, ch, 0, input.getNumSamples());
+                }
+            }
+        }
+    }
+};
+
+// 音频输出节点实现
+class AudioOutputNode : public AudioNode {
+public:
+    AudioOutputNode(const juce::String& name)
+        : AudioNode(NodeType::AudioOutput, name) {}
+
+    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) override {
+        if (isPortConnected(0, true)) {
+            const auto& input = getInputBuffer(0);
+            // 将输入复制到主输出缓冲区
+            for (int ch = 0; ch < buffer.getNumChannels() && ch < input.getNumChannels(); ++ch) {
+                buffer.copyFrom(ch, 0, input, ch, 0, input.getNumSamples());
+            }
+        }
+    }
+};
+
+// =============================================================================
+// NodeFactory::createNode
+// =============================================================================
+
 std::unique_ptr<AudioNode> NodeFactory::createNode(NodeType type, const juce::String& name) {
     juce::String nodeName = name.isEmpty() ? getDefaultName(type) : name;
 
@@ -245,61 +303,5 @@ void NodeFactory::configureDefaultPorts(AudioNode* node) {
             break;
     }
 }
-
-// =============================================================================
-// 占位节点实现 (用于未实现的节点类型)
-// =============================================================================
-class PlaceholderNode : public AudioNode {
-public:
-    PlaceholderNode(NodeType type, const juce::String& name)
-        : AudioNode(type, name) {}
-
-    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override {
-        // 占位节点: 静音通过
-    }
-};
-
-// =============================================================================
-// 混合器节点实现
-// =============================================================================
-class MixerNode : public AudioNode {
-public:
-    MixerNode(const juce::String& name)
-        : AudioNode(NodeType::Mixer, name) {}
-
-    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) override {
-        auto& output = getOutputBuffer(0);
-        output.clear();
-
-        // 混合所有连接的输入
-        for (int i = 0; i < getNumInputPorts(); ++i) {
-            if (isPortConnected(i, true)) {
-                const auto& input = getInputBuffer(i);
-                for (int ch = 0; ch < output.getNumChannels(); ++ch) {
-                    output.addFrom(ch, 0, input, ch, 0, input.getNumSamples());
-                }
-            }
-        }
-    }
-};
-
-// =============================================================================
-// 音频输出节点实现
-// =============================================================================
-class AudioOutputNode : public AudioNode {
-public:
-    AudioOutputNode(const juce::String& name)
-        : AudioNode(NodeType::AudioOutput, name) {}
-
-    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) override {
-        if (isPortConnected(0, true)) {
-            const auto& input = getInputBuffer(0);
-            // 将输入复制到主输出缓冲区
-            for (int ch = 0; ch < buffer.getNumChannels() && ch < input.getNumChannels(); ++ch) {
-                buffer.copyFrom(ch, 0, input, ch, 0, input.getNumSamples());
-            }
-        }
-    }
-};
 
 } // namespace LianCore

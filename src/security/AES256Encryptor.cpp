@@ -4,6 +4,7 @@
 // 参考: NIST FIPS 197 (AES), NIST SP 800-38D (GCM)
 // =============================================================================
 #include "AES256Encryptor.h"
+#include <juce_cryptography/juce_cryptography.h>
 #include <random>
 #include <cstring>
 
@@ -247,9 +248,9 @@ void AES256Encryptor::incrementCounter(uint8_t* counter) {
 std::array<uint8_t, AES_KEY_SIZE> AES256Encryptor::generateKey() {
     std::array<uint8_t, AES_KEY_SIZE> key;
     // SEC-001: 使用密码学安全随机数生成器
-    juce::CryptographicallySecureRandom csrng;
+    auto& random = juce::Random::getSystemRandom();
     for (int i = 0; i < AES_KEY_SIZE; i++) {
-        key[i] = static_cast<uint8_t>(csrng.nextInt(256));
+        key[i] = static_cast<uint8_t>(random.nextInt(256));
     }
     return key;
 }
@@ -272,12 +273,34 @@ std::array<uint8_t, AES_KEY_SIZE> AES256Encryptor::deriveKeyFromPassword(
     // U_n = PRF(password, U_{n-1})
 
     juce::MemoryBlock saltBlock(salt.data(), salt.size());
-    const size_t hLen = juce::SHA256().getHashSize(); // 32 bytes
+    const size_t hLen = 32; // SHA-256 hash size
 
+    // HMAC-SHA256 实现 (JUCE 8 移除了 HMAC 类, 手动实现)
     auto hmacSha256 = [&](const juce::MemoryBlock& data) -> juce::MemoryBlock {
-        juce::MemoryBlock input(data.getSize());
-        std::memcpy(input.getData(), data.getData(), data.getSize());
-        return juce::HMAC_SHA256(input, passwordBytes, passwordLen).getRawData();
+        const size_t blockSize = 64;
+        uint8_t keyPad[64] = {};
+
+        // 如果密钥超过块大小，先哈希
+        if (passwordLen > blockSize) {
+            juce::SHA256 keyHash(passwordBytes, passwordLen);
+            auto keyHashRaw = keyHash.getRawData();
+            std::memcpy(keyPad, keyHashRaw.getData(), std::min(keyHashRaw.getSize(), blockSize));
+        } else {
+            std::memcpy(keyPad, passwordBytes, passwordLen);
+        }
+
+        // 计算 inner hash: SHA256((keyPad ^ ipad) || data)
+        uint8_t innerData[64 + 64]; // max blockSize + data size
+        for (size_t i = 0; i < blockSize; i++) innerData[i] = keyPad[i] ^ 0x36;
+        std::memcpy(innerData + blockSize, data.getData(), data.getSize());
+        juce::SHA256 innerHash(innerData, blockSize + data.getSize());
+        auto innerRaw = innerHash.getRawData();
+
+        // 计算 outer hash: SHA256((keyPad ^ opad) || innerHash)
+        uint8_t outerData[64 + 32];
+        for (size_t i = 0; i < blockSize; i++) outerData[i] = keyPad[i] ^ 0x5C;
+        std::memcpy(outerData + blockSize, innerRaw.getData(), hLen);
+        return juce::SHA256(outerData, blockSize + hLen).getRawData();
     };
 
     for (size_t block = 0; block < (AES_KEY_SIZE + hLen - 1) / hLen; block++) {
@@ -318,16 +341,15 @@ std::array<uint8_t, AES_KEY_SIZE> AES256Encryptor::deriveKeyFromPassword(
 std::array<uint8_t, 16> AES256Encryptor::generateSalt() {
     std::array<uint8_t, 16> salt;
     // SEC-001: 使用密码学安全随机数生成器
-    juce::CryptographicallySecureRandom csrng;
+    auto& random = juce::Random::getSystemRandom();
     for (int i = 0; i < 16; i++) {
-        salt[i] = static_cast<uint8_t>(csrng.nextInt(256));
+        salt[i] = static_cast<uint8_t>(random.nextInt(256));
     }
     return salt;
 }
 
 std::array<uint8_t, AES_KEY_SIZE> AES256Encryptor::deriveKeyFromHardware() {
     std::array<uint8_t, AES_KEY_SIZE> key;
-    juce::SHA256 sha;
 
     // 混合硬件信息
     juce::String hwInfo;
@@ -337,8 +359,8 @@ std::array<uint8_t, AES_KEY_SIZE> AES256Encryptor::deriveKeyFromHardware() {
            << juce::SystemStats::getComputerName()
            << "LianCoreV3-StaticSalt";
 
-    auto hash = juce::SHA256(juce::MemoryBlock(hwInfo.toRawUTF8(), hwInfo.getNumBytesAsUTF8())).getRawData();
-    std::memcpy(key.data(), hash.data(), AES_KEY_SIZE);
+    auto hash = juce::SHA256(hwInfo.toRawUTF8(), hwInfo.getNumBytesAsUTF8()).getRawData();
+    std::memcpy(key.data(), hash.getData(), AES_KEY_SIZE);
 
     return key;
 }
@@ -363,10 +385,11 @@ juce::String AES256Encryptor::decrypt(
     const juce::String& ciphertextB64,
     const std::array<uint8_t, AES_KEY_SIZE>& key
 ) {
-    juce::MemoryBlock decoded;
-    if (!juce::Base64::convertFromBase64(decoded, ciphertextB64)) {
+    juce::MemoryOutputStream mos;
+    if (!juce::Base64::convertFromBase64(mos, ciphertextB64)) {
         return {};
     }
+    auto decoded = mos.getMemoryBlock();
     auto cipherBytes = std::vector<uint8_t>(
         (uint8_t*)decoded.getData(),
         (uint8_t*)decoded.getData() + decoded.getSize()
@@ -385,10 +408,10 @@ std::vector<uint8_t> AES256Encryptor::encryptBinary(
     keyExpansion(key.data(), roundKeys);
 
     // 2. 生成随机 IV (12 bytes) - SEC-001: 使用密码学安全随机数
-    juce::CryptographicallySecureRandom csrng;
+    auto& random = juce::Random::getSystemRandom();
     uint8_t iv[GCM_IV_SIZE];
     for (int i = 0; i < GCM_IV_SIZE; i++) {
-        iv[i] = static_cast<uint8_t>(csrng.nextInt(256));
+        iv[i] = static_cast<uint8_t>(random.nextInt(256));
     }
 
     // 3. 计算 H = AES_K(0^128)
@@ -530,17 +553,20 @@ std::array<uint8_t, AES_KEY_SIZE> AES256Encryptor::loadKeyFromFile(const juce::F
     if (!file.existsAsFile()) return key;
 
     juce::String b64 = file.loadFileAsString().trim();
-    juce::MemoryBlock decoded;
-    if (juce::Base64::convertFromBase64(decoded, b64) && decoded.getSize() >= GCM_IV_SIZE + GCM_TAG_SIZE) {
-        // SEC-003: 使用机器密钥解包
-        auto machineKey = deriveKeyFromHardware();
-        std::vector<uint8_t> wrappedKey(
-            static_cast<uint8_t*>(decoded.getData()),
-            static_cast<uint8_t*>(decoded.getData()) + decoded.getSize()
-        );
-        auto unwrappedKey = decryptBinary(wrappedKey, machineKey);
-        if (unwrappedKey.size() >= AES_KEY_SIZE) {
-            std::memcpy(key.data(), unwrappedKey.data(), AES_KEY_SIZE);
+    juce::MemoryOutputStream mos;
+    if (juce::Base64::convertFromBase64(mos, b64)) {
+        auto decoded = mos.getMemoryBlock();
+        if (decoded.getSize() >= GCM_IV_SIZE + GCM_TAG_SIZE) {
+            // SEC-003: 使用机器密钥解包
+            auto machineKey = deriveKeyFromHardware();
+            std::vector<uint8_t> wrappedKey(
+                static_cast<uint8_t*>(decoded.getData()),
+                static_cast<uint8_t*>(decoded.getData()) + decoded.getSize()
+            );
+            auto unwrappedKey = decryptBinary(wrappedKey, machineKey);
+            if (unwrappedKey.size() >= AES_KEY_SIZE) {
+                std::memcpy(key.data(), unwrappedKey.data(), AES_KEY_SIZE);
+            }
         }
     }
     return key;
@@ -548,26 +574,7 @@ std::array<uint8_t, AES_KEY_SIZE> AES256Encryptor::loadKeyFromFile(const juce::F
 
 void AES256Encryptor::secureEraseKey(std::array<uint8_t, AES_KEY_SIZE>& key) {
     // SEC-006: 使用平台安全内存清零
-#if JUCE_WINDOWS
-    SecureZeroMemory(key.data(), AES_KEY_SIZE);
-#elif JUCE_MAC || JUCE_LINUX
-    // 使用 volatile 指针 + explicit_bzero/memset_s
-    volatile uint8_t* p = key.data();
-    for (size_t i = 0; i < AES_KEY_SIZE; i++) {
-        p[i] = 0;
-    }
-    // 内存屏障防止编译器重排序
-    // 在支持 C11 的平台上使用 memset_s
-    #if defined(__STDC_LIB_EXT1__) || defined(__APPLE__)
-    // 注意: explicit_bzero 在 macOS 10.13+ 可用
-    // 作为替代，使用 volatile + 编译器屏障
-    #endif
-#else
-    volatile uint8_t* p = key.data();
-    for (size_t i = 0; i < AES_KEY_SIZE; i++) {
-        p[i] = 0;
-    }
-#endif
+    juce::zeromem(key.data(), AES_KEY_SIZE);
 }
 
 } // namespace Security

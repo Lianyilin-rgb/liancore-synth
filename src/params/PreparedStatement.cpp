@@ -4,10 +4,8 @@
 // =============================================================================
 #include "PreparedStatement.h"
 
-// 使用原生 SQLite3 API
-extern "C" {
-#include <sqlite3.h>
-}
+// 使用原生 SQLite3 API (本地 amalgamation)
+#include "sqlite3.h"
 
 namespace LianCore {
 

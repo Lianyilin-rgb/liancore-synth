@@ -4,6 +4,7 @@
 // =============================================================================
 #include "SpectralOscillator.h"
 #include "../utils/AudioUtils.h"
+#include <juce_dsp/juce_dsp.h>
 
 namespace LianCore {
 

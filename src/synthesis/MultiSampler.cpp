@@ -3,6 +3,7 @@
 // 多采样键位/力度映射、AI自动映射、循环播放
 // =============================================================================
 #include "MultiSampler.h"
+#include <juce_audio_formats/juce_audio_formats.h>
 #include "../utils/AudioUtils.h"
 
 namespace LianCore {
@@ -537,9 +538,12 @@ juce::var MultiSampler::toJson() const {
         zoneObj->setProperty("loopEnd", zone.loopEnd);
         zoneObj->setProperty("active", zone.active);
 
-        // 缓冲区数据序列化为Base64编码的二进制数据
-        juce::MemoryBlock block(zone.buffer.getRawDataPointer(),
-            static_cast<size_t>(zone.buffer.getNumSamples() * zone.buffer.getNumChannels() * sizeof(float)));
+        // 缓冲区数据序列化为Base64编码的二进制数据 (JUCE 8: getRawDataPointer 已移除)
+        const auto numSamples = zone.buffer.getNumSamples();
+        const auto numChannels = zone.buffer.getNumChannels();
+        const auto* const* channelData = zone.buffer.getArrayOfReadPointers();
+        juce::MemoryBlock block(channelData[0],
+            static_cast<size_t>(numSamples * numChannels * sizeof(float)));
         zoneObj->setProperty("bufferData", block.toBase64Encoding());
         zoneObj->setProperty("bufferNumChannels", zone.buffer.getNumChannels());
         zoneObj->setProperty("bufferNumSamples", zone.buffer.getNumSamples());

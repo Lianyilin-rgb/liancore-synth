@@ -360,21 +360,21 @@ juce::var WaveguideResonator::toJson() const {
     auto json = AudioNode::toJson();
 
     // Karplus-Strong参数
-    json["frequency"] = frequency_;
-    json["decay"] = decay_;
-    json["damping"] = damping_;
-    json["bodyResonance"] = bodyResonance_;
+    json.getDynamicObject()->setProperty("frequency", frequency_);
+    json.getDynamicObject()->setProperty("decay", decay_);
+    json.getDynamicObject()->setProperty("damping", damping_);
+    json.getDynamicObject()->setProperty("bodyResonance", bodyResonance_);
 
     // 激励参数
-    json["excitationType"] = static_cast<int>(excitationType_);
+    json.getDynamicObject()->setProperty("excitationType", static_cast<int>(excitationType_));
 
     // 物理参数
-    json["stringTension"] = stringTension_;
-    json["stringInharmonicity"] = stringInharmonicity_;
-    json["pickupPosition"] = pickupPosition_;
+    json.getDynamicObject()->setProperty("stringTension", stringTension_);
+    json.getDynamicObject()->setProperty("stringInharmonicity", stringInharmonicity_);
+    json.getDynamicObject()->setProperty("pickupPosition", pickupPosition_);
 
     // 播放控制
-    json["volume"] = volume_;
+    json.getDynamicObject()->setProperty("volume", volume_);
 
     return json;
 }

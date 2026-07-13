@@ -3,6 +3,7 @@
 // =============================================================================
 #include "WavetableBank.h"
 #include "AudioUtils.h"
+#include <juce_audio_formats/juce_audio_formats.h>
 #include <cmath>
 #include <algorithm>
 
@@ -138,14 +139,13 @@ bool WavetableBank::saveToWavFile(const juce::File& file) const {
     if (numFrames_ == 0) return false;
 
     juce::WavAudioFormat wavFormat;
-    juce::FileOutputStream* fos = file.createOutputStream();
+    auto fos = file.createOutputStream();
     if (!fos) return false;
 
     std::unique_ptr<juce::AudioFormatWriter> writer(
-        wavFormat.createWriterFor(fos, 44100.0, 1, 16, {}, 0));
+        wavFormat.createWriterFor(fos.get(), 44100.0, 1, 16, {}, 0));
 
     if (!writer) {
-        delete fos;
         return false;
     }
 
