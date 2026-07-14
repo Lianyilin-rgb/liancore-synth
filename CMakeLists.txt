@@ -125,6 +125,10 @@ juce_add_plugin(LianCore
         src/plugin/PluginEditor.cpp
         src/plugin/MPEProcessor.cpp
 
+        # 微音程/调音支持 (P0-3)
+        src/tuning/ScalaFileLoader.cpp
+        src/tuning/MicrotuningManager.cpp
+
     # 头文件搜索路径
     HEADER_SEARCH_PATHS
         src/core
@@ -252,6 +256,10 @@ target_sources(LianCore PRIVATE
     src/plugin/PluginEditor.cpp
     src/plugin/MPEProcessor.cpp
 
+    # 微音程/调音支持 (P0-3)
+    src/tuning/ScalaFileLoader.cpp
+    src/tuning/MicrotuningManager.cpp
+
     # JUCE 额外模块 (未包含在 juce_add_plugin 默认模块集中)
     ${JUCE_DIR}/modules/juce_audio_formats/juce_audio_formats.cpp
     ${JUCE_DIR}/modules/juce_dsp/juce_dsp.cpp
@@ -267,6 +275,7 @@ target_include_directories(LianCore PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/params
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ai
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugin
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tuning
     ${CMAKE_CURRENT_SOURCE_DIR}/src/security
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
     # JUCE 模块头文件路径 (juce_cryptography/juce_dsp/juce_audio_formats 等额外模块)

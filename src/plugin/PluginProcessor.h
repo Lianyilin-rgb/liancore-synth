@@ -11,6 +11,7 @@
 #include "../params/PresetManager.h"
 #include "../ai/AIInferenceEngine.h"
 #include "MPEProcessor.h"
+#include "../tuning/MicrotuningManager.h"
 
 namespace LianCore {
 
@@ -74,6 +75,17 @@ public:
     MPEProcessor& getMPEProcessor() { return mpeProcessor_; }
     juce::MPEInstrument& getMPEInstrument() { return mpeProcessor_.getInstrument(); }
 
+    // =========================================================================
+    // 微音程/调音支持 (P0-3)
+    // =========================================================================
+    Tuning::MicrotuningManager& getTuningManager() { return tuningManager_; }
+    bool loadScalaFile(const juce::File& file);
+    bool loadTuningPreset(const std::string& presetName);
+    bool isTuningLoaded() const;
+    std::string getTuningName() const;
+    void resetTuningToDefault();
+    double getTuningFrequency(int midiNote) const;
+
 private:
     // 核心组件
     AudioGraphEngine audioGraph_;
@@ -84,6 +96,9 @@ private:
 
     // MPE 支持
     MPEProcessor mpeProcessor_;
+
+    // 微音程/调音支持 (P0-3)
+    Tuning::MicrotuningManager tuningManager_;
 
     // 合成链节点ID
     NodeId oscNodeId_;

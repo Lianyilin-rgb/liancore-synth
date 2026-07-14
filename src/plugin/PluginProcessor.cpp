@@ -310,6 +310,34 @@ bool PluginProcessor::isMPEEnabled() const {
     return mpeProcessor_.isEnabled();
 }
 
+// =============================================================================
+// 微音程/调音支持 (P0-3)
+// =============================================================================
+
+bool PluginProcessor::loadScalaFile(const juce::File& file) {
+    return tuningManager_.loadScalaFile(file);
+}
+
+bool PluginProcessor::loadTuningPreset(const std::string& presetName) {
+    return tuningManager_.loadPreset(presetName);
+}
+
+bool PluginProcessor::isTuningLoaded() const {
+    return tuningManager_.isTuningLoaded();
+}
+
+std::string PluginProcessor::getTuningName() const {
+    return tuningManager_.getCurrentScaleName();
+}
+
+void PluginProcessor::resetTuningToDefault() {
+    tuningManager_.resetToDefault();
+}
+
+double PluginProcessor::getTuningFrequency(int midiNote) const {
+    return tuningManager_.getNoteFrequency(midiNote);
+}
+
 } // namespace LianCore
 
 // =============================================================================

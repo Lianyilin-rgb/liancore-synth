@@ -43,6 +43,10 @@ add_executable(LianCoreTests
 
     # MPE 处理器 (P0-2)
     ${CMAKE_SOURCE_DIR}/src/plugin/MPEProcessor.cpp
+
+    # 微音程/调音支持 (P0-3)
+    ${CMAKE_SOURCE_DIR}/src/tuning/ScalaFileLoader.cpp
+    ${CMAKE_SOURCE_DIR}/src/tuning/MicrotuningManager.cpp
 )
 
 # 配置测试目标
@@ -57,6 +61,7 @@ target_include_directories(LianCoreTests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/utils
     ${CMAKE_SOURCE_DIR}/src/security
     ${CMAKE_SOURCE_DIR}/src/plugin
+    ${CMAKE_SOURCE_DIR}/src/tuning
     ${JUCE_DIR}/modules
     ${CMAKE_SOURCE_DIR}
 )
