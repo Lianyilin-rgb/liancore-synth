@@ -114,7 +114,7 @@ TEST_CASE("EmotionToParameterMapper: corner interpolation accuracy", "[emotion][
 // =============================================================================
 // 测试套件 3: 中点平均 (0.5,0.5,0.5 应等于所有8个锚点的均值)
 // =============================================================================
-TEST_CASE("EmotionToParameterMapper: 中点平均", "[emotion][interpolation][midpoint]") {
+TEST_CASE("EmotionToParameterMapper: midpoint average", "[emotion][interpolation][midpoint]") {
 
     EmotionToParameterMapper mapper;
     const auto& anchors = mapper.getAnchorPresets();
@@ -142,7 +142,7 @@ TEST_CASE("EmotionToParameterMapper: 中点平均", "[emotion][interpolation][mi
 // =============================================================================
 // 测试套件 4: 参数映射数量
 // =============================================================================
-TEST_CASE("EmotionToParameterMapper: 参数映射数量", "[emotion][count]") {
+TEST_CASE("EmotionToParameterMapper: parameter mapping count", "[emotion][count]") {
 
     EmotionToParameterMapper mapper;
 
@@ -165,7 +165,7 @@ TEST_CASE("EmotionToParameterMapper: 参数映射数量", "[emotion][count]") {
 // =============================================================================
 // 测试套件 5: 直接映射规则
 // =============================================================================
-TEST_CASE("EmotionToParameterMapper: 直接映射规则", "[emotion][direct]") {
+TEST_CASE("EmotionToParameterMapper: direct mapping rules", "[emotion][direct]") {
 
     SECTION("温暖度=0.0 时截止频率为最小值") {
         auto params = EmotionToParameterMapper::mapEmotionDirect(0.0f, 0.5f, 0.5f);
@@ -245,7 +245,7 @@ TEST_CASE("EmotionToParameterMapper: 直接映射规则", "[emotion][direct]") {
 // =============================================================================
 // 测试套件 6: 边界条件
 // =============================================================================
-TEST_CASE("EmotionToParameterMapper: 边界条件", "[emotion][boundary]") {
+TEST_CASE("EmotionToParameterMapper: boundary conditions", "[emotion][boundary]") {
 
     EmotionToParameterMapper mapper;
 
@@ -315,7 +315,7 @@ TEST_CASE("EmotionToParameterMapper: nearest anchor lookup", "[emotion][nearest]
 // =============================================================================
 // 测试套件 8: 锚点设置/获取
 // =============================================================================
-TEST_CASE("EmotionToParameterMapper: 锚点管理", "[emotion][management]") {
+TEST_CASE("EmotionToParameterMapper: anchor management", "[emotion][management]") {
 
     EmotionToParameterMapper mapper;
 
