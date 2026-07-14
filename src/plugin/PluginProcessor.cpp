@@ -11,7 +11,6 @@ PluginProcessor::PluginProcessor()
         .withInput("Input", juce::AudioChannelSet::stereo(), true)
         .withOutput("Output", juce::AudioChannelSet::stereo(), true))
     , parameterTree_(*this)
-    , mpeInstrument_()
 {
     // 初始化默认音频图
     initializeDefaultGraph();
@@ -121,12 +120,8 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 
     auto startTime = juce::Time::getMillisecondCounterHiRes();
 
-    // MPE: 处理 MPE 区域设置消息 (通道 1 上的 RPN/NRPN)
-    if (mpeEnabled_) {
-        for (const auto metadata : midi) {
-            mpeInstrument_.processNextMidiEvent(metadata.getMessage());
-        }
-    }
+    // MPE: 处理 MIDI 输入, 提取逐音符 MPE 数据
+    mpeProcessor_.processMidiBuffer(midi);
 
     // 清除输出缓冲区
     for (int ch = 0; ch < getTotalNumOutputChannels(); ++ch) {
@@ -135,6 +130,30 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 
     // 处理音频图
     audioGraph_.processBlock(buffer, midi);
+
+    // MPE → 合成参数路由 (逐音符 MPE 数据 → 振荡器/滤波器参数)
+    if (mpeProcessor_.isMPEActive()) {
+        float pitchBendRatio = mpeProcessor_.getPitchBendToFrequency();
+        float pressureCutoff = mpeProcessor_.getPressureToFilterCutoff();
+        float timbreResonance = mpeProcessor_.getTimbreToResonance();
+
+        // 弯音 → 振荡器频率 (parameter 0: 频率, 归一化 0-1 → 0-20000Hz)
+        if (auto* osc = audioGraph_.getNode(oscNodeId_)) {
+            float baseFreq = osc->getParameter(0) * 20000.0f;
+            float bentFreq = baseFreq * pitchBendRatio;
+            osc->setParameter(0, juce::jlimit(0.0f, 1.0f, bentFreq / 20000.0f));
+        }
+
+        // 压力 → 滤波器截止频率 (parameter 1: 截止频率, 归一化 0-1 → 0-20000Hz)
+        if (auto* filter = audioGraph_.getNode(filterNodeId_)) {
+            filter->setParameter(1, juce::jlimit(0.0f, 1.0f, pressureCutoff / 20000.0f));
+        }
+
+        // 音色 → 滤波器共振 (parameter 2: 共振, 归一化 0-1)
+        if (auto* filter = audioGraph_.getNode(filterNodeId_)) {
+            filter->setParameter(2, juce::jlimit(0.0f, 1.0f, (timbreResonance - 0.1f) / 9.9f));
+        }
+    }
 
     // 处理调制矩阵
     modulationMatrix_.processBlock(buffer.getNumSamples());
@@ -284,28 +303,11 @@ bool PluginProcessor::isAIModelLoaded() const {
 // =============================================================================
 
 void PluginProcessor::enableMPE(bool enable) {
-    if (enable == mpeEnabled_) return;
-
-    mpeEnabled_ = enable;
-
-    if (enable) {
-        // 配置 MPE Zone 1:
-        //   主通道: 1 (MIDI通道 1)
-        //   成员通道: 2-15 (14个复音通道)
-        //   弯音范围: ±48半音 (标准MPE)
-        juce::MPEZoneLayout layout;
-        layout.setLowerZone(15, 48, 2);
-        mpeInstrument_.setZoneLayout(layout);
-
-        DBG("LianCore: MPE enabled (Zone 1: master ch=1, member ch=2-15, pitchbend=±48)");
-    } else {
-        mpeInstrument_.setZoneLayout(juce::MPEZoneLayout());
-        DBG("LianCore: MPE disabled");
-    }
+    mpeProcessor_.enable(enable);
 }
 
 bool PluginProcessor::isMPEEnabled() const {
-    return mpeEnabled_;
+    return mpeProcessor_.isEnabled();
 }
 
 } // namespace LianCore

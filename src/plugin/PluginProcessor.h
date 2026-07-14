@@ -10,6 +10,7 @@
 #include "../params/ParameterTree.h"
 #include "../params/PresetManager.h"
 #include "../ai/AIInferenceEngine.h"
+#include "MPEProcessor.h"
 
 namespace LianCore {
 
@@ -70,7 +71,8 @@ public:
     // =========================================================================
     void enableMPE(bool enable);
     bool isMPEEnabled() const;
-    juce::MPEInstrument& getMPEInstrument() { return mpeInstrument_; }
+    MPEProcessor& getMPEProcessor() { return mpeProcessor_; }
+    juce::MPEInstrument& getMPEInstrument() { return mpeProcessor_.getInstrument(); }
 
 private:
     // 核心组件
@@ -81,8 +83,7 @@ private:
     AIInferenceEngine aiEngine_;
 
     // MPE 支持
-    juce::MPEInstrument mpeInstrument_;
-    bool mpeEnabled_ = false;
+    MPEProcessor mpeProcessor_;
 
     // 合成链节点ID
     NodeId oscNodeId_;

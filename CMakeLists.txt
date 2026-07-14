@@ -123,6 +123,7 @@ juce_add_plugin(LianCore
         # 插件入口
         src/plugin/PluginProcessor.cpp
         src/plugin/PluginEditor.cpp
+        src/plugin/MPEProcessor.cpp
 
     # 头文件搜索路径
     HEADER_SEARCH_PATHS
@@ -249,6 +250,7 @@ target_sources(LianCore PRIVATE
     # 插件入口
     src/plugin/PluginProcessor.cpp
     src/plugin/PluginEditor.cpp
+    src/plugin/MPEProcessor.cpp
 
     # JUCE 额外模块 (未包含在 juce_add_plugin 默认模块集中)
     ${JUCE_DIR}/modules/juce_audio_formats/juce_audio_formats.cpp

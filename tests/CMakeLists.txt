@@ -40,6 +40,9 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/ai/TransformerTextEncoder.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/AudioTimbreAnalyzer.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/WavetableGenerator.cpp
+
+    # MPE 处理器 (P0-2)
+    ${CMAKE_SOURCE_DIR}/src/plugin/MPEProcessor.cpp
 )
 
 # 配置测试目标
