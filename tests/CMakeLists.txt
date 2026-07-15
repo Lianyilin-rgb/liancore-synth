@@ -59,6 +59,11 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/synthesis/BitCrusher.cpp
     ${CMAKE_SOURCE_DIR}/src/synthesis/RingMod.cpp
     ${CMAKE_SOURCE_DIR}/src/synthesis/ConvolutionReverb.cpp
+
+    # 混沌调制 (P1-3)
+    ${CMAKE_SOURCE_DIR}/src/modulation/ChaoticLFO.cpp
+    ${CMAKE_SOURCE_DIR}/src/modulation/ChaoticEnvelope.cpp
+    ${CMAKE_SOURCE_DIR}/src/modulation/ModulationMatrix.cpp
 )
 
 # 配置测试目标

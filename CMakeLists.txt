@@ -103,8 +103,10 @@ juce_add_plugin(LianCore
         src/synthesis/StepSequencer.cpp
 
         # 调制系统
-        src/modulation/EnvelopeGenerator.cpp
         src/modulation/LFOGenerator.cpp
+        src/modulation/EnvelopeGenerator.cpp
+        src/modulation/ChaoticLFO.cpp
+        src/modulation/ChaoticEnvelope.cpp
         src/modulation/ModulationMatrix.cpp
 
         # 参数系统
@@ -239,8 +241,10 @@ target_sources(LianCore PRIVATE
     src/synthesis/StepSequencer.cpp
 
     # 调制系统
-    src/modulation/EnvelopeGenerator.cpp
     src/modulation/LFOGenerator.cpp
+    src/modulation/EnvelopeGenerator.cpp
+    src/modulation/ChaoticLFO.cpp
+    src/modulation/ChaoticEnvelope.cpp
     src/modulation/ModulationMatrix.cpp
 
     # 参数系统

@@ -48,6 +48,8 @@ enum class NodeType {
     // 调制器
     LFO,                    // 低频振荡器
     Envelope,               // 包络
+    ChaosLFO,               // 混沌LFO (P1-3)
+    ChaosEnvelope,           // 混沌包络 (P1-3)
     MacroControl,           // 宏控制
     StepSequencer,          // 步进音序器
 

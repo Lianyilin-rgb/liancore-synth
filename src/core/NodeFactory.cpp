@@ -36,6 +36,10 @@
 #include "EnvelopeGenerator.h"
 #include "LFOGenerator.h"
 
+// 调制节点 (P1-3 - 混沌调制)
+#include "ChaoticLFO.h"
+#include "ChaoticEnvelope.h"
+
 namespace LianCore {
 
 // =============================================================================
@@ -140,8 +144,14 @@ std::unique_ptr<AudioNode> NodeFactory::createNode(NodeType type, const juce::St
             node = std::make_unique<LFOGenerator>(nodeName);
             break;
 
-        // =====================================================================
-        // 路由节点
+        case NodeType::ChaosLFO:
+            node = std::make_unique<ChaoticLFO>(nodeName);
+            break;
+
+        case NodeType::ChaosEnvelope:
+            node = std::make_unique<ChaoticEnvelope>(nodeName);
+            break;
+
         // =====================================================================
         case NodeType::AudioOutput:
             node = std::make_unique<AudioOutputNode>(nodeName);
@@ -262,6 +272,8 @@ juce::String NodeFactory::getDefaultName(NodeType type) {
         case NodeType::ConvolutionReverb:   return "卷积混响";
         case NodeType::LFO:                 return "LFO";
         case NodeType::Envelope:            return "包络";
+        case NodeType::ChaosLFO:             return "混沌LFO";
+        case NodeType::ChaosEnvelope:        return "混沌包络";
         case NodeType::MacroControl:        return "宏控制";
         case NodeType::StepSequencer:       return "步进音序器";
         case NodeType::Mixer:               return "混合器";
@@ -326,6 +338,8 @@ void NodeFactory::configureDefaultPorts(AudioNode* node) {
 
         case NodeType::Envelope:
         case NodeType::LFO:
+        case NodeType::ChaosLFO:
+        case NodeType::ChaosEnvelope:
             // 调制器: 无音频端口, 仅控制输出
             node->addOutputPort("调制输出", controlDesc);
             break;

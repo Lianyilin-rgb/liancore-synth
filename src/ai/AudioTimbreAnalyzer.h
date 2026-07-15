@@ -89,10 +89,12 @@ private:
     float computeConfidence(const std::vector<float>& params);
     
     // ---- ONNX Runtime ----
+#ifdef LIANCORE_HAS_ONNX
     std::unique_ptr<Ort::Env> ortEnv_;
     std::unique_ptr<Ort::SessionOptions> sessionOptions_;
     std::unique_ptr<Ort::Session> audioEncoderSession_;
     std::unique_ptr<Ort::Session> paramRegressorSession_;
+#endif
     
     bool audioEncoderLoaded_ = false;
     bool paramRegressorLoaded_ = false;

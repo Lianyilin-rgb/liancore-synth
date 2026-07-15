@@ -95,9 +95,11 @@ private:
     std::normal_distribution<float> normalDist_;
     
     // ---- ONNX Runtime ----
+#ifdef LIANCORE_HAS_ONNX
     std::unique_ptr<Ort::Env> ortEnv_;
     std::unique_ptr<Ort::SessionOptions> sessionOptions_;
     std::unique_ptr<Ort::Session> session_;
+#endif
     
     bool modelLoaded_ = false;
 };

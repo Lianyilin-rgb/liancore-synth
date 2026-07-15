@@ -28,6 +28,7 @@ WavetableGenerator::~WavetableGenerator() = default;
 // =============================================================================
 
 bool WavetableGenerator::loadModel(const juce::File& onnxPath) {
+#ifdef LIANCORE_HAS_ONNX
     if (!onnxPath.existsAsFile()) {
         return false;
     }
@@ -65,6 +66,10 @@ bool WavetableGenerator::loadModel(const juce::File& onnxPath) {
         modelLoaded_ = false;
         return false;
     }
+#else
+    (void)onnxPath;
+    return false;
+#endif
 }
 
 // =============================================================================
@@ -89,6 +94,7 @@ WavetableGenerator::WavetableResult WavetableGenerator::generate(
         return result;
     }
     
+    #ifdef LIANCORE_HAS_ONNX
     try {
         // 步骤1: 生成随机潜在向量 z ~ N(0, 1)
         std::vector<float> latentZ(64);
@@ -153,6 +159,10 @@ WavetableGenerator::WavetableResult WavetableGenerator::generate(
     } catch (const std::exception& e) {
         result.errorMessage = std::string("Error: ") + e.what();
     }
+#else
+    result.errorMessage = "ONNX Runtime not available. Wavetable generation requires ONNX.";
+    (void)textEmbedding;
+#endif
     
     return result;
 }

@@ -27,6 +27,7 @@ AudioTimbreAnalyzer::~AudioTimbreAnalyzer() = default;
 
 bool AudioTimbreAnalyzer::loadModels(const juce::File& audioEncoderPath,
                                       const juce::File& paramRegressorPath) {
+#ifdef LIANCORE_HAS_ONNX
     if (!audioEncoderPath.existsAsFile()) {
         return false;
     }
@@ -81,6 +82,11 @@ bool AudioTimbreAnalyzer::loadModels(const juce::File& audioEncoderPath,
         paramRegressorLoaded_ = false;
         return false;
     }
+#else
+    (void)audioEncoderPath;
+    (void)paramRegressorPath;
+    return false;
+#endif
 }
 
 // =============================================================================
@@ -230,6 +236,7 @@ AudioTimbreAnalyzer::AnalysisResult AudioTimbreAnalyzer::analyze(
         return result;
     }
     
+#ifdef LIANCORE_HAS_ONNX
     try {
         // 步骤1: 预处理音频
         auto waveform = preprocessAudio(audio, sampleRate);
@@ -310,6 +317,11 @@ AudioTimbreAnalyzer::AnalysisResult AudioTimbreAnalyzer::analyze(
     } catch (const std::exception& e) {
         result.errorMessage = std::string("Error: ") + e.what();
     }
+#else
+    result.errorMessage = "ONNX Runtime not available. Audio analysis requires ONNX.";
+    (void)audio;
+    (void)sampleRate;
+#endif
     
     return result;
 }
