@@ -9,6 +9,8 @@
 #include "PreparedStatement.h"
 #include "../security/AES256Encryptor.h"
 #include "sqlite3.h"
+#include <unordered_map>
+#include <set>
 
 namespace LianCore {
 
@@ -558,6 +560,332 @@ bool PresetManager::importPresetEncrypted(const juce::File& file,
         return savePreset(entry) >= 0;
     }
     return false;
+}
+
+// =============================================================================
+// 批量导入/导出 (P3-任务4)
+// =============================================================================
+
+bool PresetManager::exportPresetFolder(const juce::File& folder, const juce::String& category) {
+    if (!folder.exists()) {
+        folder.createDirectory();
+    }
+    if (!folder.isDirectory()) return false;
+
+    std::vector<PresetEntry> presets;
+    if (category.isNotEmpty()) {
+        presets = getPresetsByCategory(category);
+    } else {
+        presets = getAllPresets();
+    }
+
+    int exported = 0;
+    for (const auto& preset : presets) {
+        // 创建JSON
+        juce::DynamicObject obj;
+        obj.setProperty("name", preset.name);
+        obj.setProperty("category", preset.category);
+        obj.setProperty("tags", preset.tags);
+        obj.setProperty("description", preset.description);
+        obj.setProperty("author", preset.author);
+        obj.setProperty("jsonData", preset.jsonData);
+        obj.setProperty("aiPrompt", preset.aiPrompt);
+        obj.setProperty("aiConfidence", preset.aiConfidence);
+        obj.setProperty("rating", preset.rating);
+
+        // 创建安全的文件名
+        juce::String safeName = preset.name.replaceCharacter(' ', '_')
+            .replaceCharacter('/', '_')
+            .replaceCharacter('\\', '_')
+            .replaceCharacter(':', '_')
+            .replaceCharacter('"', '_')
+            .replaceCharacter('<', '_')
+            .replaceCharacter('>', '_')
+            .replaceCharacter('|', '_')
+            .replaceCharacter('?', '_')
+            .replaceCharacter('*', '_');
+
+        auto presetFile = folder.getChildFile(safeName + ".lcpreset");
+        juce::FileOutputStream fos(presetFile);
+        if (fos.openedOk()) {
+            fos.writeText(juce::JSON::toString(juce::var(&obj)), false, false, "\n");
+            exported++;
+        }
+    }
+
+    return exported > 0;
+}
+
+int PresetManager::importPresetFolder(const juce::File& folder) {
+    if (!folder.isDirectory()) return 0;
+
+    auto files = folder.findChildFiles(juce::File::findFiles, false, "*.lcpreset");
+    if (files.isEmpty()) {
+        // 也尝试 .json 扩展名
+        files = folder.findChildFiles(juce::File::findFiles, false, "*.json");
+    }
+
+    int imported = 0;
+    for (const auto& file : files) {
+        juce::String content = file.loadFileAsString();
+        if (content.isEmpty()) continue;
+
+        auto json = juce::JSON::parse(content);
+        if (auto* obj = json.getDynamicObject()) {
+            PresetEntry entry;
+            entry.name = obj->getProperty("name").toString();
+            entry.category = obj->getProperty("category").toString();
+            entry.tags = obj->getProperty("tags").toString();
+            entry.description = obj->getProperty("description").toString();
+            entry.author = obj->getProperty("author").toString();
+            entry.jsonData = obj->getProperty("jsonData").toString();
+            entry.aiPrompt = obj->getProperty("aiPrompt").toString();
+            entry.aiConfidence = (float)obj->getProperty("aiConfidence");
+            entry.rating = obj->getProperty("rating");
+
+            if (savePreset(entry) >= 0) {
+                imported++;
+            }
+        }
+    }
+
+    return imported;
+}
+
+// =============================================================================
+// 标签自动建议 (P3-任务4)
+// =============================================================================
+
+// 基于类别和名称关键词的标签建议映射
+static const std::unordered_map<std::string, std::vector<std::string>> categoryTagMap = {
+    {"bass", {"bass", "low", "sub", "808", "deep", "growl", "wobble"}},
+    {"lead", {"lead", "solo", "melody", "bright", "cutting", "saw"}},
+    {"pad", {"pad", "ambient", "atmosphere", "slow", "evolving", "texture", "warm"}},
+    {"pluck", {"pluck", "short", "percussive", "arp", "staccato", "decay"}},
+    {"keys", {"keys", "piano", "electric", "bright", "dynamic"}},
+    {"organ", {"organ", "drawbar", "church", "rotary", "hammond"}},
+    {"brass", {"brass", "horn", "trumpet", "sax", "loud", "ensemble"}},
+    {"string", {"string", "violin", "cello", "orchestral", "ensemble", "warm"}},
+    {"woodwind", {"woodwind", "flute", "reed", "breathy", "soft"}},
+    {"bell", {"bell", "chime", "metallic", "glassy", "bright", "percussive"}},
+    {"fx", {"fx", "sfx", "weird", "noise", "riser", "downlifter", "impact"}},
+    {"drum", {"drum", "kick", "snare", "hat", "percussion", "808"}},
+    {"vocal", {"vocal", "choir", "voice", "formant", "ahh", "ooh"}},
+    {"synth", {"synth", "analog", "digital", "retro", "vintage", "modern"}},
+    {"arpeggio", {"arpeggio", "arp", "sequence", "pattern", "rhythmic"}}
+};
+
+// 名称关键词到标签的映射
+static const std::unordered_map<std::string, std::string> nameKeywordTagMap = {
+    {"warm", "warm"}, {"bright", "bright"}, {"dark", "dark"}, {"soft", "soft"},
+    {"hard", "hard"}, {"deep", "deep"}, {"wide", "wide"}, {"narrow", "narrow"},
+    {"clean", "clean"}, {"dirty", "dirty"}, {"distorted", "distorted"},
+    {"reverb", "reverb"}, {"delay", "delay"}, {"chorus", "chorus"},
+    {"filter", "filter"}, {"sweep", "sweep"}, {"lfo", "lfo"},
+    {"mono", "mono"}, {"stereo", "stereo"}, {"poly", "poly"},
+    {"vintage", "vintage"}, {"modern", "modern"}, {"analog", "analog"},
+    {"digital", "digital"}, {"fm", "fm"}, {"additive", "additive"},
+    {"subtractive", "subtractive"}, {"wavetable", "wavetable"},
+    {"granular", "granular"}, {"modular", "modular"},
+    {"cinematic", "cinematic"}, {"epic", "epic"}, {"lo-fi", "lo-fi"},
+    {"lofi", "lo-fi"}, {"retro", "retro"}, {"future", "future"},
+    {"aggressive", "aggressive"}, {"gentle", "gentle"}, {"smooth", "smooth"},
+    {"punchy", "punchy"}, {"fat", "fat"}, {"thin", "thin"},
+    {"evolving", "evolving"}, {"static", "static"}, {"motion", "motion"},
+    {"attack", "attack"}, {"sustain", "sustain"}, {"release", "release"},
+    {"resonance", "resonance"}, {"cutoff", "cutoff"}
+};
+
+juce::StringArray PresetManager::suggestTags(const juce::String& name, const juce::String& category) {
+    juce::StringArray tags;
+    std::set<juce::String> tagSet; // 去重
+
+    // 1. 基于类别建议标签
+    juce::String catLower = category.toLowerCase();
+    auto catIt = categoryTagMap.find(catLower.toStdString());
+    if (catIt != categoryTagMap.end()) {
+        for (const auto& tag : catIt->second) {
+            tagSet.insert(tag);
+        }
+    }
+
+    // 2. 基于名称关键词建议标签
+    juce::String nameLower = name.toLowerCase();
+    for (const auto& [keyword, tag] : nameKeywordTagMap) {
+        if (nameLower.contains(keyword)) {
+            tagSet.insert(tag);
+        }
+    }
+
+    // 3. 添加类别本身作为标签
+    if (category.isNotEmpty()) {
+        tagSet.insert(category.toLowerCase());
+    }
+
+    // 4. 转换为 StringArray
+    for (const auto& tag : tagSet) {
+        tags.add(tag);
+    }
+
+    return tags;
+}
+
+juce::StringArray PresetManager::getAllTags() {
+    juce::StringArray tags;
+    if (!database_) return tags;
+
+    juce::ScopedLock sl(lock_);
+
+    // 查询所有预设的标签
+    const char* sql = "SELECT tags FROM presets";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(database_, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        std::set<juce::String> tagSet;
+
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* tagsJson = (const char*)sqlite3_column_text(stmt, 0);
+            if (tagsJson) {
+                juce::String tagsStr(tagsJson);
+                auto json = juce::JSON::parse(tagsStr);
+                if (auto* arr = json.getArray()) {
+                    for (const auto& tag : *arr) {
+                        if (tag.isString()) {
+                            tagSet.insert(tag.toString());
+                        }
+                    }
+                }
+            }
+        }
+
+        sqlite3_finalize(stmt);
+
+        for (const auto& tag : tagSet) {
+            tags.add(tag);
+        }
+    }
+
+    return tags;
+}
+
+// =============================================================================
+// 模糊搜索 (P3-任务4)
+// =============================================================================
+
+// 计算 Levenshtein 编辑距离
+static int levenshteinDistance(const juce::String& s1, const juce::String& s2) {
+    int m = s1.length();
+    int n = s2.length();
+
+    std::vector<std::vector<int>> dp(m + 1, std::vector<int>(n + 1, 0));
+
+    for (int i = 0; i <= m; ++i) dp[i][0] = i;
+    for (int j = 0; j <= n; ++j) dp[0][j] = j;
+
+    for (int i = 1; i <= m; ++i) {
+        for (int j = 1; j <= n; ++j) {
+            int cost = (juce::CharacterFunctions::toLowerCase(s1[i - 1]) ==
+                        juce::CharacterFunctions::toLowerCase(s2[j - 1])) ? 0 : 1;
+            dp[i][j] = std::min({
+                dp[i - 1][j] + 1,      // 删除
+                dp[i][j - 1] + 1,      // 插入
+                dp[i - 1][j - 1] + cost // 替换
+            });
+        }
+    }
+
+    return dp[m][n];
+}
+
+// 计算相似度分数 (0-1, 1=完全匹配)
+static float similarityScore(const juce::String& query, const juce::String& target) {
+    if (query.isEmpty() || target.isEmpty()) return 0.0f;
+
+    int maxLen = std::max(query.length(), target.length());
+    if (maxLen == 0) return 1.0f;
+
+    int dist = levenshteinDistance(query, target);
+    return 1.0f - static_cast<float>(dist) / maxLen;
+}
+
+std::vector<PresetEntry> PresetManager::fuzzySearch(const juce::String& query, int maxResults) {
+    std::vector<PresetEntry> results;
+
+    if (query.isEmpty() || !database_) return results;
+
+    // 先精确搜索
+    juce::String exactPattern = "%" + query + "%";
+    auto exactResults = searchPresets(query);
+
+    // 如果精确结果足够，直接返回
+    if (exactResults.size() >= static_cast<size_t>(maxResults)) {
+        return exactResults;
+    }
+
+    // 否则获取所有预设进行模糊匹配
+    auto allPresets = getAllPresets();
+
+    // 计算每个预设的相似度
+    struct ScoredPreset {
+        PresetEntry entry;
+        float score;
+    };
+    std::vector<ScoredPreset> scored;
+
+    juce::String queryLower = query.toLowerCase();
+
+    for (auto& preset : allPresets) {
+        // 检查是否已经在精确结果中
+        bool inExact = false;
+        for (const auto& e : exactResults) {
+            if (e.id == preset.id) { inExact = true; break; }
+        }
+        if (inExact) continue;
+
+        float score = 0.0f;
+
+        // 名称相似度 (权重最高)
+        float nameScore = similarityScore(queryLower, preset.name.toLowerCase());
+        score += nameScore * 0.5f;
+
+        // 前缀匹配加分
+        if (preset.name.toLowerCase().startsWith(queryLower)) {
+            score += 0.3f;
+        }
+
+        // 分类匹配
+        float catScore = similarityScore(queryLower, preset.category.toLowerCase());
+        score += catScore * 0.15f;
+
+        // 标签匹配
+        if (preset.tags.toLowerCase().contains(queryLower)) {
+            score += 0.15f;
+        }
+
+        // 描述包含查询词
+        if (preset.description.toLowerCase().contains(queryLower)) {
+            score += 0.1f;
+        }
+
+        if (score > 0.1f) { // 阈值过滤
+            scored.push_back({std::move(preset), score});
+        }
+    }
+
+    // 按分数降序排序
+    std::sort(scored.begin(), scored.end(),
+              [](const ScoredPreset& a, const ScoredPreset& b) {
+                  return a.score > b.score;
+              });
+
+    // 合并精确结果和模糊结果
+    results = exactResults;
+    for (const auto& sp : scored) {
+        if (results.size() >= static_cast<size_t>(maxResults)) break;
+        results.push_back(sp.entry);
+    }
+
+    return results;
 }
 
 // =============================================================================

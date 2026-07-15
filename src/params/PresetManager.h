@@ -79,6 +79,24 @@ public:
     bool exportPreset(int id, const juce::File& file);
     bool importPreset(const juce::File& file);
 
+    // 批量导入/导出 (P3-任务4)
+    bool exportPresetFolder(const juce::File& folder, const juce::String& category = "");
+    int importPresetFolder(const juce::File& folder);  // 返回导入数量
+
+    // =========================================================================
+    // 标签自动建议 (P3-任务4)
+    // =========================================================================
+    /** 基于预设名称和分类自动建议标签 */
+    juce::StringArray suggestTags(const juce::String& name, const juce::String& category);
+    /** 获取所有已使用的标签 */
+    juce::StringArray getAllTags();
+
+    // =========================================================================
+    // 模糊搜索 (P3-任务4)
+    // =========================================================================
+    /** 模糊搜索预设, 支持拼音前缀匹配和编辑距离 */
+    std::vector<PresetEntry> fuzzySearch(const juce::String& query, int maxResults = 20);
+
     // =========================================================================
     // 加密导入/导出 (Beta Week 5)
     // =========================================================================

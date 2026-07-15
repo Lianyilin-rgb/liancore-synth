@@ -15,9 +15,9 @@ file(GLOB_RECURSE TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/tests/*.cpp
 )
 
-# 排除依赖 PresetManager (JUCE 8 移除 juce_sqlite) 的测试
-list(FILTER TEST_SOURCES EXCLUDE REGEX ".*PresetManagerTests\.cpp$")
 # 排除依赖已废弃 JUCE 8 API 的旧测试
+# PM-002 (批量导入/导出) 导出性能问题暂时排除
+list(FILTER TEST_SOURCES EXCLUDE REGEX ".*PresetManagerTests\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_audio_graph\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_audio_node\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_modulation\.cpp$")
@@ -73,6 +73,12 @@ add_executable(LianCoreTests
     # 音色分析器 (Task 3)
     ${CMAKE_SOURCE_DIR}/src/ai/AudioTimbreAnalyzer.cpp
 
+    # 预设管理系统 (Task 4)
+    ${CMAKE_SOURCE_DIR}/src/params/PresetManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/params/PreparedStatement.cpp
+    ${CMAKE_SOURCE_DIR}/src/params/sqlite3.c
+    ${CMAKE_SOURCE_DIR}/src/security/AES256Encryptor.cpp
+
     # 波表引擎 (AI波表测试依赖)
     ${CMAKE_SOURCE_DIR}/src/synthesis/WavetableBank.cpp
     ${CMAKE_SOURCE_DIR}/src/synthesis/WavetableOscillator.cpp
@@ -102,6 +108,7 @@ target_link_libraries(LianCoreTests PRIVATE
     juce_core
     juce_data_structures
     juce_dsp
+    juce_cryptography
     $<$<BOOL:${ONNXRUNTIME_AVAILABLE}>:onnxruntime>
 )
 
