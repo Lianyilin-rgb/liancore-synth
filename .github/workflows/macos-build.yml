@@ -1,0 +1,88 @@
+# LianCore V3 - macOS CI/CD 构建验证
+name: macOS Build & Test
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x86_64]
+        include:
+          - arch: arm64
+            runner: macos-latest
+            cmake_arch: arm64
+          - arch: x86_64
+            runner: macos-13
+            cmake_arch: x86_64
+
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.3'
+
+      - name: Install CMake
+        run: brew install cmake
+
+      - name: Cache JUCE
+        id: cache-juce
+        uses: actions/cache@v4
+        with:
+          path: juce-8.0.14-osx
+          key: juce-8.0.14-osx-${{ matrix.arch }}
+
+      - name: Download JUCE 8.0.14
+        if: steps.cache-juce.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o juce-8.0.14-osx.zip \
+            "https://github.com/juce-framework/JCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
+          unzip juce-8.0.14-osx.zip
+
+      - name: Configure CMake
+        run: |
+          cmake -B build_m -G Xcode \
+            -CMAKE_BUILD_TYPE=Release \
+            -CMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }}
+
+      - name: Build VST3 + AU
+        run: |
+          cmake --build build_m --config Release --parallel $(sysctl -n hw.logicalcpu)
+
+      - name: Verify Build Artifacts
+        run: |
+          echo "=== VST3 ==="
+          ls -la build_m/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore || echo "VST3 binary not found"
+          echo "=== AU ==="
+          ls -la build_m/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore || echo "AU binary not found"
+
+      - name: Build Tests
+        run: |
+          cmake --build build_m --config Release --target LianCoreTests --parallel $(sysctl -n hw.logicalcpu)
+
+      - name: Run Unit Tests
+        run: |
+          ./build_m/tests/Release/LianCoreTests -s
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LianCore-macOS-${{ matrix.arch }}
+          path: |
+            build_m/LianCore_artefacts/Release/VST3/
+            build_m/LianCore_artefacts/Release/AU/
+          retention-days: 7
