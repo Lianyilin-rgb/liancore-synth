@@ -5,6 +5,7 @@
 #pragma once
 
 #include "../core/AudioNode.h"
+#include "SpectralWarper.h"
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <complex>
@@ -42,6 +43,12 @@ public:
     void setSpectralStretch(float amount);   // 0.5x - 4.0x 频谱拉伸
     void setSpectralShift(float semitones);  // ±24半音 频谱移调
     void setHarmonicBlend(float blend);      // 0.0 - 1.0 谐波混合
+
+    // 统一频谱变形接口 (P2-3)
+    void setSpectralWarpMode(SpectralWarper::Mode mode);
+    void setSpectralWarpAmount(float amount); // 0.0-1.0
+    SpectralWarper::Mode getSpectralWarpMode() const;
+    float getSpectralWarpAmount() const;
 
     // =========================================================================
     // 共振峰
@@ -102,6 +109,9 @@ private:
     std::vector<float> spectralPhases_;
     std::vector<float> harmonicTemplate_;     // AI谐波模板
     std::vector<float> referenceSpectrum_;    // 参考频谱
+
+    // 频谱变形器 (P2-3)
+    SpectralWarper spectralWarper_;
 
     // 播放参数
     float frequency_ = 440.0f;

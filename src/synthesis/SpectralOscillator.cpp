@@ -333,6 +333,25 @@ void SpectralOscillator::releaseResources() {
 }
 
 // =============================================================================
+// 统一频谱变形接口 (P2-3)
+// =============================================================================
+void SpectralOscillator::setSpectralWarpMode(SpectralWarper::Mode mode) {
+    spectralWarper_.setMode(mode);
+}
+
+void SpectralOscillator::setSpectralWarpAmount(float amount) {
+    spectralWarper_.setAmount(amount);
+}
+
+SpectralWarper::Mode SpectralOscillator::getSpectralWarpMode() const {
+    return spectralWarper_.getMode();
+}
+
+float SpectralOscillator::getSpectralWarpAmount() const {
+    return spectralWarper_.getAmount();
+}
+
+// =============================================================================
 // 频谱帧处理
 // =============================================================================
 void SpectralOscillator::processSpectralFrame() {
@@ -341,22 +360,30 @@ void SpectralOscillator::processSpectralFrame() {
     // 复制当前幅度用于链式处理
     std::vector<float> processedMags = spectralMagnitudes_;
 
-    // 1. 频谱拉伸
-    if (std::abs(spectralStretch_ - 1.0f) > 0.001f) {
+    // P2-3: 统一频谱变形处理 (优先使用)
+    float warpAmount = spectralWarper_.getAmount();
+    if (warpAmount > 0.001f) {
+        spectralWarper_.process(processedMags, sampleRate_, fftSize_);
+    }
+
+    // 频谱拉伸 (仅当未使用统一变形Stretch模式时)
+    if (spectralWarper_.getMode() != SpectralWarper::Mode::Stretch &&
+        std::abs(spectralStretch_ - 1.0f) > 0.001f) {
         applySpectralStretch(processedMags, spectralStretch_);
     }
 
-    // 2. 频谱移调
-    if (std::abs(spectralShift_) > 0.01f) {
+    // 频谱移调 (仅当未使用统一变形Shift模式时)
+    if (spectralWarper_.getMode() != SpectralWarper::Mode::Shift &&
+        std::abs(spectralShift_) > 0.01f) {
         applySpectralShift(processedMags, spectralShift_);
     }
 
-    // 3. 谐波混合
+    // 谐波混合
     if (harmonicBlend_ > 0.001f) {
         applyHarmonicBlend(processedMags, harmonicBlend_);
     }
 
-    // 4. 共振峰滤波
+    // 共振峰滤波
     if (std::abs(formantShift_) > 0.01f || formantPreset_ >= 0) {
         applyFormantFilter(processedMags, formantShift_);
     }

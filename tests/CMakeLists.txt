@@ -64,6 +64,7 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/modulation/ChaoticLFO.cpp
     ${CMAKE_SOURCE_DIR}/src/modulation/ChaoticEnvelope.cpp
     ${CMAKE_SOURCE_DIR}/src/modulation/ModulationMatrix.cpp
+    ${CMAKE_SOURCE_DIR}/src/synthesis/SpectralWarper.cpp
 )
 
 # 配置测试目标

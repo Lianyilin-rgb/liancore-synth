@@ -96,6 +96,7 @@ juce_add_plugin(LianCore
         src/synthesis/ConvolutionReverb.cpp
         # Beta 阶段新增合成引擎
         src/synthesis/SpectralOscillator.cpp
+        src/synthesis/SpectralWarper.cpp
         src/synthesis/GranularPlayer.cpp
         src/synthesis/WaveguideResonator.cpp
         src/synthesis/MultiSampler.cpp
@@ -238,6 +239,7 @@ target_sources(LianCore PRIVATE
     src/synthesis/RingMod.cpp
     src/synthesis/ConvolutionReverb.cpp
     src/synthesis/SpectralOscillator.cpp
+    src/synthesis/SpectralWarper.cpp
     src/synthesis/GranularPlayer.cpp
     src/synthesis/WaveguideResonator.cpp
     src/synthesis/MultiSampler.cpp
