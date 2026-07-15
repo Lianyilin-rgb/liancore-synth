@@ -97,8 +97,6 @@ public:
     // =========================================================================
     // 音色匹配 (P3-任务3)
     // =========================================================================
-    /** 从WAV文件加载并分析音色特征 */
-    AI::AudioTimbreAnalyzer::AnalysisResult analyzeTimbreFromFile(const juce::File& file);
     /** 从内存音频缓冲区分析音色 */
     AI::AudioTimbreAnalyzer::AnalysisResult analyzeTimbreFromBuffer(
         const juce::AudioBuffer<float>& buffer, double sampleRate);
@@ -106,8 +104,8 @@ public:
     const AI::AudioTimbreAnalyzer::AnalysisResult& getLastTimbreResult() const { return lastTimbreResult_; }
     /** 是否正在分析中 */
     bool isAnalyzing() const { return analyzing_; }
-    /** 加载WAV文件到内存缓冲区 */
-    static juce::AudioBuffer<float> loadWavFile(const juce::File& file);
+    /** 获取音色分析器引用 */
+    AI::AudioTimbreAnalyzer& getTimbreAnalyzer() { return timbreAnalyzer_; }
 
 private:
     // 核心组件

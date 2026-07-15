@@ -189,54 +189,6 @@ bool PluginProcessor::isOversamplingEnabled() const {
 // 音色匹配 (P3-任务3)
 // =============================================================================
 
-juce::AudioBuffer<float> PluginProcessor::loadWavFile(const juce::File& file) {
-    juce::AudioBuffer<float> buffer;
-    
-    juce::AudioFormatManager formatManager;
-    formatManager.registerBasicFormats();
-    
-    std::unique_ptr<juce::AudioFormatReader> reader(
-        formatManager.createReaderFor(file));
-    
-    if (reader) {
-        int numSamples = static_cast<int>(reader->lengthInSamples);
-        buffer.setSize(static_cast<int>(reader->numChannels), numSamples);
-        reader->read(&buffer, 0, numSamples, 0, true, true);
-    }
-    
-    return buffer;
-}
-
-AI::AudioTimbreAnalyzer::AnalysisResult PluginProcessor::analyzeTimbreFromFile(
-    const juce::File& file) {
-    analyzing_ = true;
-    
-    juce::AudioFormatManager formatManager;
-    formatManager.registerBasicFormats();
-    
-    std::unique_ptr<juce::AudioFormatReader> reader(
-        formatManager.createReaderFor(file));
-    
-    if (!reader) {
-        analyzing_ = false;
-        AI::AudioTimbreAnalyzer::AnalysisResult result;
-        result.errorMessage = "Failed to read WAV file.";
-        return result;
-    }
-    
-    int numSamples = static_cast<int>(reader->lengthInSamples);
-    juce::AudioBuffer<float> buffer(static_cast<int>(reader->numChannels), numSamples);
-    reader->read(&buffer, 0, numSamples, 0, true, true);
-    
-    double sampleRate = reader->sampleRate;
-    
-    auto result = analyzeTimbreFromBuffer(buffer, sampleRate);
-    lastTimbreResult_ = result;
-    
-    analyzing_ = false;
-    return result;
-}
-
 AI::AudioTimbreAnalyzer::AnalysisResult PluginProcessor::analyzeTimbreFromBuffer(
     const juce::AudioBuffer<float>& buffer, double sampleRate) {
     analyzing_ = true;

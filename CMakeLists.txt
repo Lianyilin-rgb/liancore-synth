@@ -129,6 +129,7 @@ juce_add_plugin(LianCore
         src/ai/OnnxModelExporter.cpp
         src/ai/AudioTimbreAnalyzer.cpp
         src/ai/WavetableGenerator.cpp
+        src/ai/AITextToWavetable.cpp
 
         # UI 组件
         src/ui/WavetableEditor.cpp
@@ -274,6 +275,7 @@ target_sources(LianCore PRIVATE
     src/ai/OnnxModelExporter.cpp
     src/ai/AudioTimbreAnalyzer.cpp
     src/ai/WavetableGenerator.cpp
+    src/ai/AITextToWavetable.cpp
 
     # UI 组件
     src/ui/WavetableEditor.cpp
