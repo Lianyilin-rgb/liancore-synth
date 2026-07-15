@@ -4,6 +4,7 @@
 #include "PluginEditor.h"
 #include "../ai/AIInferenceEngine.h"
 #include "../ai/EmotionToParameterMapper.h"
+#include "../synthesis/WavetableOscillator.h"
 
 namespace LianCore {
 
@@ -248,6 +249,33 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     };
     addAndMakeVisible(aiTestButton_);
 
+    // 波表编辑器按钮 (P2-2)
+    wavetableEditorButton_.setButtonText("波表编辑器");
+    wavetableEditorButton_.onClick = [this]() {
+        wavetableEditorVisible_ = !wavetableEditorVisible_;
+        wavetableEditor_.setVisible(wavetableEditorVisible_);
+        if (wavetableEditorVisible_) {
+            wavetableEditorButton_.setButtonText("关闭波表编辑器");
+            // 绑定波表A到编辑器
+            auto& graph = processor_.getAudioGraph();
+            graph.forEachNode([this](AudioNode* node) {
+                if (node->getNodeType() == NodeType::WavetableOscillator) {
+                    auto* osc = dynamic_cast<WavetableOscillator*>(node);
+                    if (osc) {
+                        wavetableEditor_.setWavetableBank(&osc->getWavetableA());
+                    }
+                }
+            });
+            setSize(800, 800);
+        } else {
+            wavetableEditorButton_.setButtonText("波表编辑器");
+            setSize(800, 560);
+        }
+        resized();
+    };
+    addAndMakeVisible(wavetableEditorButton_);
+    addChildComponent(wavetableEditor_); // 默认隐藏
+
     // AI提示输入
     aiPromptInput_.setMultiLine(false);
     aiPromptInput_.setTextToShowWhenEmpty("描述声音...", juce::Colour(0xFF555568));
@@ -317,6 +345,8 @@ void PluginEditor::resized() {
 
     // 按钮行
     auto buttonRow = area.removeFromTop(35);
+    wavetableEditorButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
+    buttonRow.removeFromLeft(4);
     openWebUIButton_.setBounds(buttonRow.withWidth(140).reduced(4, 2));
 
     area.removeFromTop(10);
@@ -326,6 +356,11 @@ void PluginEditor::resized() {
 
     // CPU状态
     cpuLabel_.setBounds(10, getHeight() - 30, 300, 20);
+
+    // 波表编辑器 (下半部分)
+    if (wavetableEditorVisible_) {
+        wavetableEditor_.setBounds(0, 280, getWidth(), getHeight() - 280);
+    }
 }
 
 void PluginEditor::timerCallback() {

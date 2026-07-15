@@ -129,6 +129,9 @@ juce_add_plugin(LianCore
         src/ai/AudioTimbreAnalyzer.cpp
         src/ai/WavetableGenerator.cpp
 
+        # UI 组件
+        src/ui/WavetableEditor.cpp
+
         # 插件入口
         src/plugin/PluginProcessor.cpp
         src/plugin/PluginEditor.cpp
@@ -146,6 +149,7 @@ juce_add_plugin(LianCore
         src/params
         src/ai
         src/plugin
+        src/ui
         src/security
         src/utils
 
@@ -268,6 +272,9 @@ target_sources(LianCore PRIVATE
     src/ai/AudioTimbreAnalyzer.cpp
     src/ai/WavetableGenerator.cpp
 
+    # UI 组件
+    src/ui/WavetableEditor.cpp
+
     # 插件入口
     src/plugin/PluginProcessor.cpp
     src/plugin/PluginEditor.cpp
@@ -291,6 +298,7 @@ target_include_directories(LianCore PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/modulation
     ${CMAKE_CURRENT_SOURCE_DIR}/src/params
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ai
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugin
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tuning
     ${CMAKE_CURRENT_SOURCE_DIR}/src/security
