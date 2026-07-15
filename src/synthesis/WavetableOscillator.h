@@ -26,7 +26,7 @@ enum class BendMode {
 // =============================================================================
 class WavetableOscillator : public AudioNode {
 public:
-    static constexpr int kMaxUnisonVoices = 16;
+    static constexpr int kMaxUnisonVoices = 32;
     static constexpr int kMaxBlockSize = 512;
 
     WavetableOscillator(const juce::String& name = "波表振荡器");

@@ -31,6 +31,13 @@ struct MPEVoiceState {
 // =============================================================================
 class MPEProcessor {
 public:
+    // 配置常量 (公开, 供外部使用)
+    static constexpr int kMPEMasterChannel = 1;         // 主通道
+    static constexpr int kMPEMemberChannels = 15;       // 下区成员通道 (通道 2-16)
+    static constexpr int kMPEUpperMemberChannels = 15;  // 上区成员通道 (通道 1-15)
+    static constexpr int kMPEPitchBendRange = 48;       // 弯音范围 (半音)
+    static constexpr int kMPEMaxPolyphony = 32;         // 最大复音数 (P1-1)
+
     MPEProcessor();
     ~MPEProcessor() = default;
 
@@ -91,18 +98,13 @@ private:
     juce::MPEInstrument instrument_;
     bool enabled_ = false;
 
-    // 音符状态缓存 (最大 16 复音)
+    // 音符状态缓存 (最大 32 复音)
     std::vector<MPEVoiceState> voiceStates_;
 
     // 主通道 MPE 状态
     float masterPitchBend_ = 0.0f;
     float masterPressure_ = 0.0f;
     float masterTimbre_ = 0.0f;
-
-    // 配置
-    static constexpr int kMPEMasterChannel = 1;    // 主通道
-    static constexpr int kMPEMemberChannels = 15;  // 成员通道数
-    static constexpr int kMPEPitchBendRange = 48;  // 弯音范围 (半音)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MPEProcessor)
 };

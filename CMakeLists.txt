@@ -153,7 +153,7 @@ juce_add_plugin(LianCore
         LIANCORE_WAVETABLE_FRAME_SIZE=2048
         LIANCORE_MAX_MODULATION_ROUTES=32
         LIANCORE_MAX_UNDO_STEPS=50
-        LIANCORE_MAX_POLYPHONY=16
+        LIANCORE_MAX_POLYPHONY=32
 )
 
 # 注意: 所有源文件已经在上面的 juce_add_plugin(SOURCES) 中列出

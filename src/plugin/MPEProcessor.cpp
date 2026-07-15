@@ -44,12 +44,14 @@ bool MPEProcessor::isMPEActive() const {
 // MPE Zone 配置
 // =============================================================================
 void MPEProcessor::configureMPEZone() {
-    // MPE Zone 1 (Lower Zone):
-    //   主通道: 1 (MIDI通道 1, 用于全局消息)
-    //   成员通道: 2-15 (14个通道, 每个通道一个音符)
-    //   弯音范围: ±48 半音
+    // MPE Zone 配置 (P1-1: 最大 32 复音)
+    //   下区 (Lower Zone): 通道 2-16 (15 个成员通道), 弯音 ±48 半音
+    //   上区 (Upper Zone): 通道 1-15 (15 个成员通道), 弯音 ±48 半音
+    //   总计: 30 个 MPE 复音 + 通道 16 作为全局主通道
+    //   非 MPE 模式: 无限制, 由 JUCE MPEInstrument 管理
     juce::MPEZoneLayout layout;
     layout.setLowerZone(kMPEMemberChannels, kMPEPitchBendRange, kMPEMasterChannel + 1);
+    layout.setUpperZone(kMPEUpperMemberChannels, kMPEPitchBendRange, kMPEMasterChannel + 1);
     instrument_.setZoneLayout(layout);
     // setZoneLayout 自动禁用 legacy mode
 }

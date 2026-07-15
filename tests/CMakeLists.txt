@@ -81,6 +81,9 @@ if(ONNXRUNTIME_AVAILABLE)
     target_compile_definitions(LianCoreTests PRIVATE LIANCORE_HAS_ONNX=1)
 endif()
 
+# 复音数编译定义 (P1-1)
+target_compile_definitions(LianCoreTests PRIVATE LIANCORE_MAX_POLYPHONY=32)
+
 # UTF-8 编码支持 (MSVC)
 if(MSVC)
     target_compile_options(LianCoreTests PRIVATE /utf-8)
