@@ -66,6 +66,13 @@ add_executable(LianCoreTests
     ${CMAKE_SOURCE_DIR}/src/modulation/ModulationMatrix.cpp
     ${CMAKE_SOURCE_DIR}/src/synthesis/SpectralWarper.cpp
     ${CMAKE_SOURCE_DIR}/src/plugin/OversamplingProcessor.cpp
+
+    # AI文本到波表引擎 (Task 2)
+    ${CMAKE_SOURCE_DIR}/src/ai/AITextToWavetable.cpp
+
+    # 波表引擎 (AI波表测试依赖)
+    ${CMAKE_SOURCE_DIR}/src/synthesis/WavetableBank.cpp
+    ${CMAKE_SOURCE_DIR}/src/synthesis/WavetableOscillator.cpp
 )
 
 # 配置测试目标

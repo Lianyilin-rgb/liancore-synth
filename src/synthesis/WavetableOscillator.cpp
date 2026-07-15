@@ -11,6 +11,15 @@ WavetableOscillator::WavetableOscillator(const juce::String& name)
     // 初始化波表为默认锯齿波
     wavetableA_.generateSawWave(64);
     wavetableB_.generateSineWave(1);
+
+    // 添加输出端口
+    PortDescriptor outputDesc;
+    outputDesc.name = "音频输出";
+    outputDesc.isAudio = true;
+    outputDesc.defaultValue = 0.0f;
+    outputDesc.minValue = -1.0f;
+    outputDesc.maxValue = 1.0f;
+    addOutputPort("音频输出", outputDesc);
 }
 
 // =============================================================================
