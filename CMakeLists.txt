@@ -282,6 +282,7 @@ target_sources(LianCore PRIVATE
     src/plugin/PluginProcessor.cpp
     src/plugin/PluginEditor.cpp
     src/plugin/MPEProcessor.cpp
+    src/plugin/OversamplingProcessor.cpp
 
     # 微音程/调音支持 (P0-3)
     src/tuning/ScalaFileLoader.cpp
