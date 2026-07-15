@@ -24,6 +24,14 @@
 #include "Compressor.h"
 #include "EQ.h"
 
+// 信号处理节点 (P1-2 - 新增效果器)
+#include "Chorus.h"
+#include "Flanger.h"
+#include "Phaser.h"
+#include "BitCrusher.h"
+#include "RingMod.h"
+#include "ConvolutionReverb.h"
+
 // 调制节点
 #include "EnvelopeGenerator.h"
 #include "LFOGenerator.h"
@@ -189,6 +197,30 @@ std::unique_ptr<AudioNode> NodeFactory::createNode(NodeType type, const juce::St
             node = std::make_unique<EQ>(nodeName);
             break;
 
+        case NodeType::Chorus:
+            node = std::make_unique<Chorus>(nodeName);
+            break;
+
+        case NodeType::Flanger:
+            node = std::make_unique<Flanger>(nodeName);
+            break;
+
+        case NodeType::Phaser:
+            node = std::make_unique<Phaser>(nodeName);
+            break;
+
+        case NodeType::BitCrusher:
+            node = std::make_unique<BitCrusher>(nodeName);
+            break;
+
+        case NodeType::RingMod:
+            node = std::make_unique<RingMod>(nodeName);
+            break;
+
+        case NodeType::ConvolutionReverb:
+            node = std::make_unique<ConvolutionReverb>(nodeName);
+            break;
+
         // =====================================================================
         // 待实现 (Release阶段)
         // =====================================================================
@@ -222,6 +254,12 @@ juce::String NodeFactory::getDefaultName(NodeType type) {
         case NodeType::Reverb:              return "混响";
         case NodeType::Compressor:          return "压缩器";
         case NodeType::EQ:                  return "均衡器";
+        case NodeType::Chorus:              return "合声";
+        case NodeType::Flanger:             return "镶边";
+        case NodeType::Phaser:              return "移相";
+        case NodeType::BitCrusher:          return "比特粉碎";
+        case NodeType::RingMod:             return "环形调制";
+        case NodeType::ConvolutionReverb:   return "卷积混响";
         case NodeType::LFO:                 return "LFO";
         case NodeType::Envelope:            return "包络";
         case NodeType::MacroControl:        return "宏控制";
@@ -275,6 +313,12 @@ void NodeFactory::configureDefaultPorts(AudioNode* node) {
         case NodeType::Reverb:
         case NodeType::Compressor:
         case NodeType::EQ:
+        case NodeType::Chorus:
+        case NodeType::Flanger:
+        case NodeType::Phaser:
+        case NodeType::BitCrusher:
+        case NodeType::RingMod:
+        case NodeType::ConvolutionReverb:
             // 效果器: 1个音频输入, 1个音频输出
             node->addInputPort("音频输入", audioDesc);
             node->addOutputPort("音频输出", audioDesc);

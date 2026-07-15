@@ -38,6 +38,12 @@ enum class NodeType {
     Reverb,                 // 混响
     Compressor,             // 压缩器
     EQ,                     // 均衡器
+    Chorus,                 // 合声 (P1-2)
+    Flanger,                // 镶边 (P1-2)
+    Phaser,                 // 移相 (P1-2)
+    BitCrusher,             // 比特粉碎 (P1-2)
+    RingMod,                // 环形调制 (P1-2)
+    ConvolutionReverb,      // 卷积混响 (P1-2)
 
     // 调制器
     LFO,                    // 低频振荡器
@@ -117,6 +123,10 @@ public:
     bool isPortConnected(int portIndex, bool isInput) const;
     void setPortConnected(int portIndex, bool isInput, bool connected);
 
+    // 初始化端口 (公开以支持测试和脚本直接创建节点)
+    void addInputPort(const juce::String& name, const PortDescriptor& desc);
+    void addOutputPort(const juce::String& name, const PortDescriptor& desc);
+
     // =========================================================================
     // 输入/输出缓冲区访问
     // =========================================================================
@@ -146,10 +156,6 @@ public:
     virtual void fromJson(const juce::var& json);
 
 protected:
-    // 初始化端口
-    void addInputPort(const juce::String& name, const PortDescriptor& desc);
-    void addOutputPort(const juce::String& name, const PortDescriptor& desc);
-
     // NodeFactory 需要访问端口初始化方法
     friend class NodeFactory;
 

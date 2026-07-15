@@ -170,6 +170,12 @@ juce::String nodeTypeToString(NodeType type) {
         case NodeType::Reverb:              return "Reverb";
         case NodeType::Compressor:          return "Compressor";
         case NodeType::EQ:                  return "EQ";
+        case NodeType::Chorus:              return "Chorus";
+        case NodeType::Flanger:             return "Flanger";
+        case NodeType::Phaser:              return "Phaser";
+        case NodeType::BitCrusher:          return "BitCrusher";
+        case NodeType::RingMod:             return "RingMod";
+        case NodeType::ConvolutionReverb:   return "ConvolutionReverb";
         case NodeType::LFO:                 return "LFO";
         case NodeType::Envelope:            return "Envelope";
         case NodeType::MacroControl:        return "MacroControl";
@@ -198,6 +204,12 @@ NodeType stringToNodeType(const juce::String& str) {
         {"Reverb",              NodeType::Reverb},
         {"Compressor",          NodeType::Compressor},
         {"EQ",                  NodeType::EQ},
+        {"Chorus",              NodeType::Chorus},
+        {"Flanger",             NodeType::Flanger},
+        {"Phaser",              NodeType::Phaser},
+        {"BitCrusher",          NodeType::BitCrusher},
+        {"RingMod",             NodeType::RingMod},
+        {"ConvolutionReverb",   NodeType::ConvolutionReverb},
         {"LFO",                 NodeType::LFO},
         {"Envelope",            NodeType::Envelope},
         {"MacroControl",        NodeType::MacroControl},

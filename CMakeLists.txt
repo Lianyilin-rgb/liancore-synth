@@ -87,6 +87,13 @@ juce_add_plugin(LianCore
         src/synthesis/Reverb.cpp
         src/synthesis/Compressor.cpp
         src/synthesis/EQ.cpp
+        # P1-2 新增效果器
+        src/synthesis/Chorus.cpp
+        src/synthesis/Flanger.cpp
+        src/synthesis/Phaser.cpp
+        src/synthesis/BitCrusher.cpp
+        src/synthesis/RingMod.cpp
+        src/synthesis/ConvolutionReverb.cpp
         # Beta 阶段新增合成引擎
         src/synthesis/SpectralOscillator.cpp
         src/synthesis/GranularPlayer.cpp
@@ -218,6 +225,12 @@ target_sources(LianCore PRIVATE
     src/synthesis/Reverb.cpp
     src/synthesis/Compressor.cpp
     src/synthesis/EQ.cpp
+    src/synthesis/Chorus.cpp
+    src/synthesis/Flanger.cpp
+    src/synthesis/Phaser.cpp
+    src/synthesis/BitCrusher.cpp
+    src/synthesis/RingMod.cpp
+    src/synthesis/ConvolutionReverb.cpp
     src/synthesis/SpectralOscillator.cpp
     src/synthesis/GranularPlayer.cpp
     src/synthesis/WaveguideResonator.cpp
