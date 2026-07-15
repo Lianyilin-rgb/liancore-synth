@@ -10,6 +10,7 @@
 #include "../params/ParameterTree.h"
 #include "../params/PresetManager.h"
 #include "../ai/AIInferenceEngine.h"
+#include "../ai/AudioTimbreAnalyzer.h"
 #include "MPEProcessor.h"
 #include "OversamplingProcessor.h"
 #include "../tuning/MicrotuningManager.h"
@@ -93,6 +94,21 @@ public:
     OversamplingProcessor& getOversamplingProcessor() { return oversamplingProcessor_; }
     bool isOversamplingEnabled() const;
 
+    // =========================================================================
+    // 音色匹配 (P3-任务3)
+    // =========================================================================
+    /** 从WAV文件加载并分析音色特征 */
+    AI::AudioTimbreAnalyzer::AnalysisResult analyzeTimbreFromFile(const juce::File& file);
+    /** 从内存音频缓冲区分析音色 */
+    AI::AudioTimbreAnalyzer::AnalysisResult analyzeTimbreFromBuffer(
+        const juce::AudioBuffer<float>& buffer, double sampleRate);
+    /** 获取最后一次匹配结果 */
+    const AI::AudioTimbreAnalyzer::AnalysisResult& getLastTimbreResult() const { return lastTimbreResult_; }
+    /** 是否正在分析中 */
+    bool isAnalyzing() const { return analyzing_; }
+    /** 加载WAV文件到内存缓冲区 */
+    static juce::AudioBuffer<float> loadWavFile(const juce::File& file);
+
 private:
     // 核心组件
     AudioGraphEngine audioGraph_;
@@ -109,6 +125,11 @@ private:
 
     // 过采样处理器 (P2-4)
     OversamplingProcessor oversamplingProcessor_;
+
+    // 音色分析器 (P3-任务3)
+    AI::AudioTimbreAnalyzer timbreAnalyzer_;
+    AI::AudioTimbreAnalyzer::AnalysisResult lastTimbreResult_;
+    bool analyzing_ = false;
 
     // 合成链节点ID
     NodeId oscNodeId_;

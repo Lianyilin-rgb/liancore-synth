@@ -73,11 +73,23 @@ public:
         return audioEncoderLoaded_ && paramRegressorLoaded_;
     }
     
+    /**
+     * 无ONNX回退: 基于频谱特征提取直接分析
+     * 提取 RMS, 频谱质心, 高频能量, 谐波丰富度等特征
+     * 映射到合成器参数 (11个参数)
+     */
+    AnalysisResult analyzeFallback(const juce::AudioBuffer<float>& audio,
+                                    double sampleRate);
+    
     /** 常量 */
     static constexpr int getEmbeddingDim() { return 128; }
-    static constexpr double getTargetSampleRate() { return 44100.0; }
+    static constexpr int getTargetSampleRate() { return 44100.0; }
     static constexpr int getTargetSampleCount() { return 16384; }
     static constexpr int getNumParams() { return 11; }
+    
+    /** 参数名称映射 */
+    static juce::String getParamName(int index);
+    static juce::String getParamDescription(int index);
     
 private:
     // ---- 预处理 ----

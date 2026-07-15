@@ -70,6 +70,9 @@ add_executable(LianCoreTests
     # AI文本到波表引擎 (Task 2)
     ${CMAKE_SOURCE_DIR}/src/ai/AITextToWavetable.cpp
 
+    # 音色分析器 (Task 3)
+    ${CMAKE_SOURCE_DIR}/src/ai/AudioTimbreAnalyzer.cpp
+
     # 波表引擎 (AI波表测试依赖)
     ${CMAKE_SOURCE_DIR}/src/synthesis/WavetableBank.cpp
     ${CMAKE_SOURCE_DIR}/src/synthesis/WavetableOscillator.cpp

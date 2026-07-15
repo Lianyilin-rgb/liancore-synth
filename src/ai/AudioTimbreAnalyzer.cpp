@@ -7,6 +7,7 @@
 #include <cmath>
 #include <algorithm>
 #include <numeric>
+#include <juce_dsp/juce_dsp.h>
 
 namespace LianCore {
 namespace AI {
@@ -352,6 +353,178 @@ float AudioTimbreAnalyzer::computeConfidence(const std::vector<float>& params) {
     }
     
     return std::max(0.0f, std::min(1.0f, confidence));
+}
+
+// =============================================================================
+// 无ONNX回退: 频谱特征提取 → 合成器参数映射
+// =============================================================================
+
+AudioTimbreAnalyzer::AnalysisResult AudioTimbreAnalyzer::analyzeFallback(
+    const juce::AudioBuffer<float>& audio, double sampleRate) {
+    
+    AnalysisResult result;
+    result.parameters.resize(11, 0.5f);
+    
+    if (audio.getNumSamples() == 0) {
+        result.errorMessage = "Empty audio buffer.";
+        return result;
+    }
+    
+    const float* data = audio.getReadPointer(0);
+    int numSamples = audio.getNumSamples();
+    
+    // ---- 特征1: RMS (响度) ----
+    float rms = 0.0f;
+    for (int i = 0; i < numSamples; ++i) {
+        rms += data[i] * data[i];
+    }
+    rms = std::sqrt(rms / numSamples);
+    
+    // ---- 特征2: 频谱质心 (亮度) ----
+    // 使用FFT计算频谱
+    int fftSize = 1;
+    while (fftSize < numSamples) fftSize <<= 1;
+    if (fftSize > 16384) fftSize = 16384;
+    
+    juce::dsp::FFT fft(std::log2(fftSize));
+    std::vector<float> fftData(fftSize * 2, 0.0f);
+    for (int i = 0; i < std::min(numSamples, fftSize); ++i) {
+        fftData[i * 2] = data[i];
+    }
+    fft.performRealOnlyForwardTransform(fftData.data(), true);
+    
+    // 计算频谱质心 (加权平均频率)
+    float spectralCentroid = 0.0f;
+    float totalMag = 0.0f;
+    int numBins = fftSize / 2;
+    for (int i = 1; i < numBins; ++i) {
+        float mag = std::sqrt(fftData[i * 2] * fftData[i * 2] + fftData[i * 2 + 1] * fftData[i * 2 + 1]);
+        float freq = static_cast<float>(i) * static_cast<float>(sampleRate) / fftSize;
+        spectralCentroid += freq * mag;
+        totalMag += mag;
+    }
+    if (totalMag > 0.0f) spectralCentroid /= totalMag;
+    float normalizedCentroid = spectralCentroid / (static_cast<float>(sampleRate) / 2.0f);
+    
+    // ---- 特征3: 高频能量比 (>5kHz) ----
+    float highFreqEnergy = 0.0f;
+    float lowFreqEnergy = 0.0f;
+    int highFreqBin = static_cast<int>(5000.0f * fftSize / sampleRate);
+    for (int i = 1; i < numBins; ++i) {
+        float mag = std::sqrt(fftData[i * 2] * fftData[i * 2] + fftData[i * 2 + 1] * fftData[i * 2 + 1]);
+        if (i > highFreqBin) {
+            highFreqEnergy += mag;
+        } else {
+            lowFreqEnergy += mag;
+        }
+    }
+    float highFreqRatio = (highFreqEnergy + lowFreqEnergy > 0.0f) ?
+        highFreqEnergy / (highFreqEnergy + lowFreqEnergy) : 0.0f;
+    
+    // ---- 特征4: 谐波丰富度 (峰值数) ----
+    int peakCount = 0;
+    for (int i = 3; i < numBins - 1; ++i) {
+        float mag = std::sqrt(fftData[i * 2] * fftData[i * 2] + fftData[i * 2 + 1] * fftData[i * 2 + 1]);
+        float magPrev = std::sqrt(fftData[(i-1) * 2] * fftData[(i-1) * 2] + fftData[(i-1) * 2 + 1] * fftData[(i-1) * 2 + 1]);
+        float magNext = std::sqrt(fftData[(i+1) * 2] * fftData[(i+1) * 2] + fftData[(i+1) * 2 + 1] * fftData[(i+1) * 2 + 1]);
+        if (mag > magPrev * 1.5f && mag > magNext * 1.5f && mag > 0.01f) {
+            peakCount++;
+        }
+    }
+    float harmonicRichness = std::min(1.0f, peakCount / 30.0f);
+    
+    // ---- 特征5: 瞬态/冲击性 (零交叉率) ----
+    int zeroCrossings = 0;
+    for (int i = 1; i < numSamples; ++i) {
+        if ((data[i] >= 0.0f && data[i - 1] < 0.0f) ||
+            (data[i] < 0.0f && data[i - 1] >= 0.0f)) {
+            zeroCrossings++;
+        }
+    }
+    float zcr = static_cast<float>(zeroCrossings) / numSamples;
+    float attack = zcr * 2.0f; // 高零交叉率 → 高Attack
+    
+    // ---- 特征6: 低频能量 (温暖度) ----
+    int lowFreqBin = static_cast<int>(250.0f * fftSize / sampleRate);
+    float lowEnergy = 0.0f;
+    for (int i = 1; i <= lowFreqBin; ++i) {
+        float mag = std::sqrt(fftData[i * 2] * fftData[i * 2] + fftData[i * 2 + 1] * fftData[i * 2 + 1]);
+        lowEnergy += mag;
+    }
+    float warmth = (totalMag > 0.0f) ? lowEnergy / totalMag : 0.5f;
+    
+    // ---- 映射到11个合成器参数 ----
+    // 参数顺序: [0]波形类型, [1]滤波器截止, [2]滤波器共振, [3]包络Attack,
+    //           [4]包络Decay, [5]包络Sustain, [6]包络Release,
+    //           [7]调制深度, [8]混响量, [9]延迟量, [10]失真量
+    
+    // [0] 波形类型: 基于谐波丰富度 (0=正弦, 1=锯齿)
+    result.parameters[0] = harmonicRichness;
+    
+    // [1] 滤波器截止: 基于频谱质心
+    result.parameters[1] = std::max(0.1f, std::min(0.95f, normalizedCentroid * 2.5f));
+    
+    // [2] 滤波器共振: 基于峰值数
+    result.parameters[2] = harmonicRichness * 0.8f;
+    
+    // [3] Attack: 基于零交叉率/瞬态
+    result.parameters[3] = std::max(0.0f, std::min(1.0f, 1.0f - attack));
+    
+    // [4] Decay: 中等
+    result.parameters[4] = 0.5f;
+    
+    // [5] Sustain: 基于RMS
+    result.parameters[5] = std::min(1.0f, rms * 3.0f);
+    
+    // [6] Release: 基于高频能量 (高频多→短Release)
+    result.parameters[6] = std::max(0.1f, 1.0f - highFreqRatio * 0.8f);
+    
+    // [7] 调制深度: 基于谐波丰富度
+    result.parameters[7] = harmonicRichness * 0.7f;
+    
+    // [8] 混响量: 基于Sustain
+    result.parameters[8] = 0.3f + warmth * 0.4f;
+    
+    // [9] 延迟量: 基于Attack
+    result.parameters[9] = 0.2f + (1.0f - attack) * 0.3f;
+    
+    // [10] 失真量: 基于高频能量
+    result.parameters[10] = highFreqRatio * 0.6f;
+    
+    result.audioEmbedding.resize(128, 0.0f);
+    result.confidence = 0.7f; // 回退模式置信度固定
+    
+    return result;
+}
+
+// =============================================================================
+// 参数名称/描述
+// =============================================================================
+
+juce::String AudioTimbreAnalyzer::getParamName(int index) {
+    static const char* names[] = {
+        "波形类型", "滤波器截止", "滤波器共振",
+        "Attack", "Decay", "Sustain", "Release",
+        "调制深度", "混响量", "延迟量", "失真量"
+    };
+    return (index >= 0 && index < 11) ? names[index] : "Unknown";
+}
+
+juce::String AudioTimbreAnalyzer::getParamDescription(int index) {
+    static const char* descs[] = {
+        "0=正弦波, 0.5=方波, 1=锯齿波",
+        "20Hz ~ 20kHz 低通滤波器截止频率",
+        "滤波器共振Q值",
+        "包络起音时间",
+        "包络衰减时间",
+        "包络保持电平",
+        "包络释放时间",
+        "LFO/包络调制深度",
+        "混响效果发送量",
+        "延迟效果发送量",
+        "失真/饱和量"
+    };
+    return (index >= 0 && index < 11) ? descs[index] : "Unknown";
 }
 
 } // namespace AI
