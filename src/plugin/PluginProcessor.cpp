@@ -109,6 +109,13 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
 // =============================================================================
 void PluginProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     audioGraph_.prepareToPlay(sampleRate, samplesPerBlock);
+
+    // P2-4: 离线渲染时启用4x过采样
+    if (isNonRealtime()) {
+        oversamplingProcessor_.setEnabled(true);
+        oversamplingProcessor_.prepare(sampleRate, samplesPerBlock,
+                                       getTotalNumOutputChannels());
+    }
 }
 
 void PluginProcessor::releaseResources() {
@@ -128,8 +135,19 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         buffer.clear(ch, 0, buffer.getNumSamples());
     }
 
+    // P2-4: 4x过采样 (离线渲染模式)
+    bool oversampling = oversamplingProcessor_.isEnabled();
+    if (oversampling) {
+        oversamplingProcessor_.process(buffer);
+    }
+
     // 处理音频图
     audioGraph_.processBlock(buffer, midi);
+
+    // P2-4: 降采样回原始采样率
+    if (oversampling) {
+        oversamplingProcessor_.downsample(buffer);
+    }
 
     // MPE → 合成参数路由 (逐音符 MPE 数据 → 振荡器/滤波器参数)
     if (mpeProcessor_.isMPEActive()) {
@@ -161,6 +179,10 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     // 更新CPU使用率
     auto elapsed = juce::Time::getMillisecondCounterHiRes() - startTime;
     currentCpuUsage_ = elapsed;
+}
+
+bool PluginProcessor::isOversamplingEnabled() const {
+    return oversamplingProcessor_.isEnabled();
 }
 
 // =============================================================================

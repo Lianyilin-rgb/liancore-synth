@@ -11,6 +11,7 @@
 #include "../params/PresetManager.h"
 #include "../ai/AIInferenceEngine.h"
 #include "MPEProcessor.h"
+#include "OversamplingProcessor.h"
 #include "../tuning/MicrotuningManager.h"
 
 namespace LianCore {
@@ -86,6 +87,12 @@ public:
     void resetTuningToDefault();
     double getTuningFrequency(int midiNote) const;
 
+    // =========================================================================
+    // 过采样 (P2-4)
+    // =========================================================================
+    OversamplingProcessor& getOversamplingProcessor() { return oversamplingProcessor_; }
+    bool isOversamplingEnabled() const;
+
 private:
     // 核心组件
     AudioGraphEngine audioGraph_;
@@ -99,6 +106,9 @@ private:
 
     // 微音程/调音支持 (P0-3)
     Tuning::MicrotuningManager tuningManager_;
+
+    // 过采样处理器 (P2-4)
+    OversamplingProcessor oversamplingProcessor_;
 
     // 合成链节点ID
     NodeId oscNodeId_;
