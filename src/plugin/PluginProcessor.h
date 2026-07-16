@@ -16,6 +16,7 @@
 #include "OversamplingProcessor.h"
 #include "../tuning/MicrotuningManager.h"
 #include "../synthesis/GranularPlayer.h"
+#include "../params/EffectsChainPreset.h"
 
 namespace LianCore {
 
@@ -91,6 +92,13 @@ public:
     GranularPlayer& getGranularPlayer() { return granularPlayer_; }
 
     // =========================================================================
+    // 效果链预设管理 (P5-3 → P6-3 UI)
+    // =========================================================================
+    EffectsChainPresetManager& getEffectsChainPresetManager() { return effectsChainPresetManager_; }
+    EffectsChainPreset& getCurrentEffectsChainPreset() { return currentEffectsChainPreset_; }
+    void setCurrentEffectsChainPreset(const EffectsChainPreset& preset) { currentEffectsChainPreset_ = preset; }
+
+    // =========================================================================
     // 微音程/调音支持 (P0-3)
     // =========================================================================
     Tuning::MicrotuningManager& getTuningManager() { return tuningManager_; }
@@ -137,6 +145,10 @@ private:
 
     // 粒子合成引擎 (P5-1 → P6-2 UI)
     GranularPlayer granularPlayer_;
+
+    // 效果链预设管理 (P5-3 → P6-3 UI)
+    EffectsChainPresetManager effectsChainPresetManager_;
+    EffectsChainPreset currentEffectsChainPreset_;
 
     // 微音程/调音支持 (P0-3)
     Tuning::MicrotuningManager tuningManager_;

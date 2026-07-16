@@ -325,6 +325,34 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
         return &processor_.getGranularPlayer();
     });
 
+    // 效果链预设按钮 (P6-3)
+    effectsChainButton_.setButtonText("效果链");
+    effectsChainButton_.onClick = [this]() {
+        effectsChainVisible_ = !effectsChainVisible_;
+        effectsChainUI_.setVisible(effectsChainVisible_);
+        if (effectsChainVisible_) {
+            effectsChainButton_.setButtonText("关闭效果链");
+            setSize(800, 800);
+        } else {
+            effectsChainButton_.setButtonText("效果链");
+            setSize(800, 560);
+        }
+        resized();
+    };
+    addAndMakeVisible(effectsChainButton_);
+    addChildComponent(effectsChainUI_); // 默认隐藏
+
+    // 设置效果链UI的引用
+    effectsChainUI_.setManagerRef([this]() -> EffectsChainPresetManager* {
+        return &processor_.getEffectsChainPresetManager();
+    });
+    effectsChainUI_.setPresetRef([this]() -> EffectsChainPreset* {
+        return &processor_.getCurrentEffectsChainPreset();
+    });
+    effectsChainUI_.setSetPresetFn([this](const EffectsChainPreset& preset) {
+        processor_.setCurrentEffectsChainPreset(preset);
+    });
+
     // AI提示输入
     aiPromptInput_.setMultiLine(false);
     aiPromptInput_.setTextToShowWhenEmpty("描述声音...", juce::Colour(0xFF555568));
@@ -400,6 +428,8 @@ void PluginEditor::resized() {
     buttonRow.removeFromLeft(4);
     granularEngineButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
     buttonRow.removeFromLeft(4);
+    effectsChainButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
+    buttonRow.removeFromLeft(4);
     openWebUIButton_.setBounds(buttonRow.withWidth(140).reduced(4, 2));
 
     area.removeFromTop(10);
@@ -423,6 +453,11 @@ void PluginEditor::resized() {
     // 粒子合成引擎UI (下半部分, P6-2)
     if (granularEngineVisible_) {
         granularEngineUI_.setBounds(0, 280, getWidth(), getHeight() - 280);
+    }
+
+    // 效果链预设UI (下半部分, P6-3)
+    if (effectsChainVisible_) {
+        effectsChainUI_.setBounds(0, 280, getWidth(), getHeight() - 280);
     }
 }
 

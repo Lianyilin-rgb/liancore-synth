@@ -136,6 +136,7 @@ juce_add_plugin(LianCore
         src/ui/MPERecordingUI.cpp
         src/ui/GranularEngineUI.cpp
         src/ui/GrainEnvelopeVisualizer.cpp
+        src/ui/EffectsChainUI.cpp
 
         # 插件入口
         src/plugin/PluginProcessor.cpp
@@ -286,6 +287,7 @@ target_sources(LianCore PRIVATE
     src/ui/MPERecordingUI.cpp
     src/ui/GranularEngineUI.cpp
     src/ui/GrainEnvelopeVisualizer.cpp
+    src/ui/EffectsChainUI.cpp
 
     # 插件入口
     src/plugin/PluginProcessor.cpp

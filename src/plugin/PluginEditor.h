@@ -9,6 +9,7 @@
 #include "../ui/WavetableEditor.h"
 #include "../ui/MPERecordingUI.h"
 #include "../ui/GranularEngineUI.h"
+#include "../ui/EffectsChainUI.h"
 #include <unordered_map>
 #include <functional>
 
@@ -82,6 +83,7 @@ private:
     juce::TextButton wavetableEditorButton_;
     juce::TextButton mpeRecordingButton_;
     juce::TextButton granularEngineButton_;
+    juce::TextButton effectsChainButton_;
     juce::TextEditor aiPromptInput_;
 
     // 波表编辑器 (P2-2)
@@ -95,6 +97,10 @@ private:
     // 粒子合成引擎UI (P6-2)
     GranularEngineUI granularEngineUI_;
     bool granularEngineVisible_ = false;
+
+    // 效果链预设UI (P6-3)
+    EffectsChainUI effectsChainUI_;
+    bool effectsChainVisible_ = false;
 
     // WebSocket消息服务器
     UIMessageServer uiServer_;
