@@ -1,4 +1,4 @@
-﻿// LianCore V3 - MPE录制与回放系统
+// LianCore V3 - MPE录制与回放系统
 // 将MPE演奏录制为标准MIDI文件，回放时保留MPE数据
 // 基于MIDI Polyphonic Expression (MPE) 规范
 // 每个音符使用独立MIDI通道，保留弯音/触后等维度数据
@@ -39,7 +39,7 @@ struct MPEEvent {
                 msg = juce::MidiMessage::noteOff(channel + 1, noteNumber);
                 break;
             case PitchBend:
-                msg = juce::MidiMessage::pitchBendEvent(channel + 1, value);
+                msg = juce::MidiMessage::pitchWheel(channel + 1, value);
                 break;
             case ChannelPressure:
                 msg = juce::MidiMessage::channelPressureChange(channel + 1, value);

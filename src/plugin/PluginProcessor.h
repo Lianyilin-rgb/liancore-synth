@@ -12,6 +12,7 @@
 #include "../ai/AIInferenceEngine.h"
 #include "../ai/AudioTimbreAnalyzer.h"
 #include "MPEProcessor.h"
+#include "MPERecorder.h"
 #include "OversamplingProcessor.h"
 #include "../tuning/MicrotuningManager.h"
 
@@ -78,6 +79,12 @@ public:
     juce::MPEInstrument& getMPEInstrument() { return mpeProcessor_.getInstrument(); }
 
     // =========================================================================
+    // MPE 录制与回放 (P5-2 → P6-1 UI)
+    // =========================================================================
+    MPERecorder& getMPERecorder() { return mpeRecorder_; }
+    MPEPlayer& getMPEPlayer() { return mpePlayer_; }
+
+    // =========================================================================
     // 微音程/调音支持 (P0-3)
     // =========================================================================
     Tuning::MicrotuningManager& getTuningManager() { return tuningManager_; }
@@ -117,6 +124,10 @@ private:
 
     // MPE 支持
     MPEProcessor mpeProcessor_;
+
+    // MPE 录制与回放 (P5-2)
+    MPERecorder mpeRecorder_;
+    MPEPlayer mpePlayer_;
 
     // 微音程/调音支持 (P0-3)
     Tuning::MicrotuningManager tuningManager_;

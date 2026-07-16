@@ -1,4 +1,4 @@
-﻿// LianCore V3 - MPERecorder MPE录制与回放实现
+// LianCore V3 - MPERecorder MPE录制与回放实现
 // 支持完整的MPE事件录制、MIDI文件导出、JSON序列化、实时回放
 #include "MPERecorder.h"
 #include <algorithm>
@@ -44,11 +44,11 @@ void MPERecorder::addEvent(const juce::MidiMessage& msg) {
         evt.timestamp = totalSamples_ / sampleRate_;
         events_.push_back(evt);
     } 
-    else if (msg.isPitchBend()) {
+    else if (msg.isPitchWheel()) {
         MPEEvent evt;
         evt.type = MPEEvent::PitchBend;
         evt.channel = msg.getChannel() - 1;
-        evt.value = msg.getPitchBendValue();
+        evt.value = msg.getPitchWheelValue();
         evt.timestamp = totalSamples_ / sampleRate_;
         events_.push_back(evt);
     } 
@@ -263,11 +263,11 @@ bool MPEPlayer::loadFromMidiFile(const juce::File& file) {
                 evt.channel = msg.getChannel() - 1;
                 evt.timestamp = timestamp;
                 events_.push_back(evt);
-            } else if (msg.isPitchBend()) {
+            } else if (msg.isPitchWheel()) {
                 MPEEvent evt;
                 evt.type = MPEEvent::PitchBend;
                 evt.channel = msg.getChannel() - 1;
-                evt.value = msg.getPitchBendValue();
+                evt.value = msg.getPitchWheelValue();
                 evt.timestamp = timestamp;
                 events_.push_back(evt);
             } else if (msg.isChannelPressure()) {

@@ -7,6 +7,7 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "../ui/WavetableEditor.h"
+#include "../ui/MPERecordingUI.h"
 #include <unordered_map>
 #include <functional>
 
@@ -78,11 +79,16 @@ private:
     juce::TextButton openWebUIButton_;
     juce::TextButton aiTestButton_;
     juce::TextButton wavetableEditorButton_;
+    juce::TextButton mpeRecordingButton_;
     juce::TextEditor aiPromptInput_;
 
     // 波表编辑器 (P2-2)
     WavetableEditor wavetableEditor_;
     bool wavetableEditorVisible_ = false;
+
+    // MPE录制UI (P6-1)
+    MPERecordingUI mpeRecordingUI_;
+    bool mpeRecordingVisible_ = false;
 
     // WebSocket消息服务器
     UIMessageServer uiServer_;

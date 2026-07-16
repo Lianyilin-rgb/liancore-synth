@@ -133,11 +133,13 @@ juce_add_plugin(LianCore
 
         # UI 组件
         src/ui/WavetableEditor.cpp
+        src/ui/MPERecordingUI.cpp
 
         # 插件入口
         src/plugin/PluginProcessor.cpp
         src/plugin/PluginEditor.cpp
         src/plugin/MPEProcessor.cpp
+        src/plugin/MPERecorder.cpp
         src/plugin/OversamplingProcessor.cpp
 
         # 微音程/调音支持 (P0-3)
@@ -279,11 +281,13 @@ target_sources(LianCore PRIVATE
 
     # UI 组件
     src/ui/WavetableEditor.cpp
+    src/ui/MPERecordingUI.cpp
 
     # 插件入口
     src/plugin/PluginProcessor.cpp
     src/plugin/PluginEditor.cpp
     src/plugin/MPEProcessor.cpp
+    src/plugin/MPERecorder.cpp
     src/plugin/OversamplingProcessor.cpp
 
     # 微音程/调音支持 (P0-3)

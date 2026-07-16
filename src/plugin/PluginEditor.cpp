@@ -5,6 +5,7 @@
 #include "../ai/AIInferenceEngine.h"
 #include "../ai/EmotionToParameterMapper.h"
 #include "../synthesis/WavetableOscillator.h"
+#include "../plugin/MPERecorder.h"
 
 namespace LianCore {
 
@@ -276,6 +277,32 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     addAndMakeVisible(wavetableEditorButton_);
     addChildComponent(wavetableEditor_); // 默认隐藏
 
+    // MPE录制按钮 (P6-1)
+    mpeRecordingButton_.setButtonText("MPE 录制");
+    mpeRecordingButton_.onClick = [this]() {
+        mpeRecordingVisible_ = !mpeRecordingVisible_;
+        mpeRecordingUI_.setVisible(mpeRecordingVisible_);
+        if (mpeRecordingVisible_) {
+            mpeRecordingButton_.setButtonText("关闭 MPE 录制");
+            setSize(800, 800);
+        } else {
+            mpeRecordingButton_.setButtonText("MPE 录制");
+            setSize(800, 560);
+        }
+        resized();
+    };
+    addAndMakeVisible(mpeRecordingButton_);
+    addChildComponent(mpeRecordingUI_); // 默认隐藏
+
+    // 设置 MPE 录制UI的录制器/播放器引用
+    mpeRecordingUI_.setRecorderRef([this]() -> MPERecorder* {
+        return &processor_.getMPERecorder();
+    });
+    mpeRecordingUI_.setPlayerRef([this]() -> MPEPlayer* {
+        return &processor_.getMPEPlayer();
+    });
+    mpeRecordingUI_.startUIUpdates(15);
+
     // AI提示输入
     aiPromptInput_.setMultiLine(false);
     aiPromptInput_.setTextToShowWhenEmpty("描述声音...", juce::Colour(0xFF555568));
@@ -347,6 +374,8 @@ void PluginEditor::resized() {
     auto buttonRow = area.removeFromTop(35);
     wavetableEditorButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
     buttonRow.removeFromLeft(4);
+    mpeRecordingButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
+    buttonRow.removeFromLeft(4);
     openWebUIButton_.setBounds(buttonRow.withWidth(140).reduced(4, 2));
 
     area.removeFromTop(10);
@@ -360,6 +389,11 @@ void PluginEditor::resized() {
     // 波表编辑器 (下半部分)
     if (wavetableEditorVisible_) {
         wavetableEditor_.setBounds(0, 280, getWidth(), getHeight() - 280);
+    }
+
+    // MPE录制UI (下半部分, P6-1)
+    if (mpeRecordingVisible_) {
+        mpeRecordingUI_.setBounds(0, 280, getWidth(), getHeight() - 280);
     }
 }
 

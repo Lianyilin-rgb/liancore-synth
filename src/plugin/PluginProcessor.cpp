@@ -110,6 +110,10 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
 void PluginProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     audioGraph_.prepareToPlay(sampleRate, samplesPerBlock);
 
+    // P5-2: 初始化 MPE 录制器/播放器采样率
+    mpeRecorder_.setSampleRate(sampleRate);
+    mpePlayer_.setSampleRate(sampleRate);
+
     // P2-4: 离线渲染时启用4x过采样
     if (isNonRealtime()) {
         oversamplingProcessor_.setEnabled(true);
@@ -126,6 +130,12 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     juce::ScopedNoDenormals noDenormals;
 
     auto startTime = juce::Time::getMillisecondCounterHiRes();
+
+    // P5-2: MPE 录制 - 捕获 MIDI 事件
+    mpeRecorder_.processBlock(midi);
+
+    // P5-2: MPE 回放 - 注入已录制的事件
+    mpePlayer_.processBlock(midi, buffer.getNumSamples());
 
     // MPE: 处理 MIDI 输入, 提取逐音符 MPE 数据
     mpeProcessor_.processMidiBuffer(midi);
