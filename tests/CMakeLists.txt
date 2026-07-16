@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # LianCore - 测试构建配置
 # =============================================================================
 
@@ -25,13 +25,13 @@ list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_wavetable\\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*ParameterTreeTests\\.cpp$")
 # 排除 MPE/微音程测试 (P0-2/P0-3 尚未实现, 测试引用已移除的 API)
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*MPEAndMicrotuningTests\\.cpp$")
-# 排除 ONNX 依赖的 AI 测试 (P1-2/P3-2/P3-3/P2-3/P2-4 构建期间 ONNX 头文件路径问题)
-list(FILTER TEST_SOURCES EXCLUDE REGEX ".*WavetableGeneratorTests\\.cpp$")
-list(FILTER TEST_SOURCES EXCLUDE REGEX ".*AudioTimbreAnalyzerTests\\.cpp$")
-list(FILTER TEST_SOURCES EXCLUDE REGEX ".*AIWavetableUITests\\.cpp$")
-list(FILTER TEST_SOURCES EXCLUDE REGEX ".*TimbreMatchTests\\.cpp$")
-list(FILTER TEST_SOURCES EXCLUDE REGEX ".*SpectralWarperTests\\.cpp$")
-list(FILTER TEST_SOURCES EXCLUDE REGEX ".*OversamplingProcessorTests\\.cpp$")
+# P7-2: ONNX测试已恢复 - 以下排除已移除
+# list(FILTER TEST_SOURCES EXCLUDE REGEX ".*WavetableGeneratorTests\\.cpp$")
+# list(FILTER TEST_SOURCES EXCLUDE REGEX ".*AudioTimbreAnalyzerTests\\.cpp$")
+# list(FILTER TEST_SOURCES EXCLUDE REGEX ".*AIWavetableUITests\\.cpp$")
+# list(FILTER TEST_SOURCES EXCLUDE REGEX ".*TimbreMatchTests\\.cpp$")
+# list(FILTER TEST_SOURCES EXCLUDE REGEX ".*SpectralWarperTests\\.cpp$")
+# list(FILTER TEST_SOURCES EXCLUDE REGEX ".*OversamplingProcessorTests\\.cpp$")
 
 # 创建测试可执行文件
 # 注意: PluginProcessor.cpp 依赖大量 JUCE GUI 模块, 测试单独编译不经济
@@ -84,6 +84,11 @@ add_executable(LianCoreTests
     # 波表引擎 (AI波表测试依赖)
     ${CMAKE_SOURCE_DIR}/src/synthesis/WavetableBank.cpp
     ${CMAKE_SOURCE_DIR}/src/synthesis/WavetableOscillator.cpp
+
+    # P7-2: ONNX测试恢复 - 添加需要的源文件
+    ${CMAKE_SOURCE_DIR}/src/ai/WavetableGenerator.cpp
+    ${CMAKE_SOURCE_DIR}/src/synthesis/SpectralWarper.cpp
+    ${CMAKE_SOURCE_DIR}/src/plugin/OversamplingProcessor.cpp
 )
 
 # 配置测试目标
@@ -111,14 +116,25 @@ target_link_libraries(LianCoreTests PRIVATE
     juce_data_structures
     juce_dsp
     juce_cryptography
-#    $<$<BOOL:${ONNXRUNTIME_AVAILABLE}>:onnxruntime>
+    $<$<BOOL:${ONNXRUNTIME_AVAILABLE}>:onnxruntime>
 )
 
-# ONNX runtime version mismatch - skip ONNX in test build
-# if(ONNXRUNTIME_AVAILABLE)
-#     target_include_directories(LianCoreTests PRIVATE ${ONNXRUNTIME_DIR}/include)
-#     target_compile_definitions(LianCoreTests PRIVATE LIANCORE_HAS_ONNX=1)
-# endif()
+# P7-2: ONNX Runtime 版本统一 - 启用 ONNX 头文件和编译定义
+if(ONNXRUNTIME_AVAILABLE)
+    target_include_directories(LianCoreTests PRIVATE ${ONNXRUNTIME_DIR}/include)
+    target_compile_definitions(LianCoreTests PRIVATE LIANCORE_HAS_ONNX=1)
+
+    # P7-2: 复制 ONNX 1.18.1 DLL 到测试输出目录 (避免 System32 1.17.1 冲突)
+    add_custom_command(TARGET LianCoreTests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${ONNXRUNTIME_DIR}/lib/onnxruntime.dll"
+            "$<TARGET_FILE_DIR:LianCoreTests>/onnxruntime.dll"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${ONNXRUNTIME_DIR}/lib/onnxruntime_providers_shared.dll"
+            "$<TARGET_FILE_DIR:LianCoreTests>/onnxruntime_providers_shared.dll"
+        COMMENT "P7-2: 复制 ONNX Runtime 1.18.1 DLL 到测试目录"
+    )
+endif()
 
 # 复音数编译定义 (P1-1)
 target_compile_definitions(LianCoreTests PRIVATE LIANCORE_MAX_POLYPHONY=32)
