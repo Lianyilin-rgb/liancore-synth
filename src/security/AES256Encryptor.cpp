@@ -199,7 +199,7 @@ void AES256Encryptor::gcmGHASH(
     const uint8_t* ct, size_t ctLen, uint8_t* tag
 ) {
     uint8_t y[16] = {0};
-    uint8_t block[16] = {0};
+    [[maybe_unused]] uint8_t block[16] = {0};
 
     // AAD
     size_t pos = 0;

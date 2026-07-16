@@ -57,7 +57,7 @@ void WavetableOscillator::processBlock(juce::AudioBuffer<float>& buffer, juce::M
     for (const auto& msg : midi) {
         auto message = msg.getMessage();
         if (message.isNoteOn()) {
-            setFrequency(AudioUtils::midiNoteToFrequency(message.getNoteNumber()));
+            setFrequency(static_cast<float>(AudioUtils::midiNoteToFrequency(message.getNoteNumber())));
         }
     }
 
@@ -106,25 +106,24 @@ void WavetableOscillator::releaseResources() {
 // 生成单个声部
 // =============================================================================
 void WavetableOscillator::generateVoice(float* output, int numSamples,
-                                         float frequency, float detune, float pan, float volume) {
+                                         float frequency, float detune, [[maybe_unused]] float pan, float volume) {
     auto& voice = voiceStates_[0]; // 简化: 使用第一个声部状态
 
-    float freqRatio = AudioUtils::centsToRatio(detune);
+    float freqRatio = static_cast<float>(AudioUtils::centsToRatio(detune));
     float effectiveFreq = frequency * freqRatio;
     voice.phaseIncrement = AudioUtils::phaseIncrementPerSample(effectiveFreq, sampleRate_);
 
     // 预计算波表帧数据
-    int frameSize = wavetableA_.getFrameSize();
-    float frameScale = static_cast<float>(frameSize);
+    [[maybe_unused]] int frameSize = wavetableA_.getFrameSize();
 
     for (int i = 0; i < numSamples; ++i) {
         // 处理Bend模式
         float bendMod = 0.0f;
         if (bendMode_ == BendMode::FM && bendAmount_ > 0.0f) {
             // FM: 频率调制(使用另一个振荡器频率)
-            float modulatorFreq = frequency_ * AudioUtils::semitonesToRatio(bendAmount_ * 24.0f);
+            float modulatorFreq = frequency_ * static_cast<float>(AudioUtils::semitonesToRatio(bendAmount_ * 24.0f));
             float modPhase = voice.phaseA * modulatorFreq / frequency_;
-            bendMod = std::sin(AudioUtils::kTwoPI * modPhase) * bendAmount_;
+            bendMod = static_cast<float>(std::sin(AudioUtils::kTwoPI * modPhase)) * bendAmount_;
         }
 
         // 计算波表位置
@@ -152,15 +151,15 @@ void WavetableOscillator::generateVoice(float* output, int numSamples,
 
         // AM处理
         if (bendMode_ == BendMode::AM && bendAmount_ > 0.0f) {
-            float amMod = 0.5f + 0.5f * std::sin(AudioUtils::kTwoPI * voice.phaseA * 2.0f);
+            float amMod = 0.5f + 0.5f * static_cast<float>(std::sin(AudioUtils::kTwoPI * voice.phaseA * 2.0f));
             sample *= AudioUtils::lerp(1.0f, amMod, bendAmount_);
         }
 
         // RM处理
         if (bendMode_ == BendMode::RM && bendAmount_ > 0.0f) {
-            float carrierFreq = frequency_ * AudioUtils::semitonesToRatio(bendAmount_ * 24.0f);
+            float carrierFreq = frequency_ * static_cast<float>(AudioUtils::semitonesToRatio(bendAmount_ * 24.0f));
             float carrierPhase = AudioUtils::wrapPhase(voice.phaseA * carrierFreq / frequency_);
-            sample *= std::sin(AudioUtils::kTwoPI * carrierPhase);
+            sample *= static_cast<float>(std::sin(AudioUtils::kTwoPI * carrierPhase));
         }
 
         output[i] = sample * volume;
@@ -206,7 +205,7 @@ void WavetableOscillator::setVolume(float volume) {
 }
 
 void WavetableOscillator::setUnisonVoices(int count) {
-    unisonVoices_ = AudioUtils::clamp(count, 1, kMaxUnisonVoices);
+    unisonVoices_ = std::clamp(count, 1, kMaxUnisonVoices);
 }
 
 void WavetableOscillator::setUnisonDetune(float cents) {

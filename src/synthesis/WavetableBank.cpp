@@ -142,8 +142,12 @@ bool WavetableBank::saveToWavFile(const juce::File& file) const {
     auto fos = file.createOutputStream();
     if (!fos) return false;
 
+    juce::AudioFormatWriterOptions options;
+    std::unique_ptr<juce::OutputStream> outStream(std::move(fos));
     std::unique_ptr<juce::AudioFormatWriter> writer(
-        wavFormat.createWriterFor(fos.get(), 44100.0, 1, 16, {}, 0));
+        wavFormat.createWriterFor(outStream, options.withSampleRate(44100.0)
+                                                   .withNumChannels(1)
+                                                   .withBitsPerSample(16)));
 
     if (!writer) {
         return false;

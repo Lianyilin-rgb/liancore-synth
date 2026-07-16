@@ -83,7 +83,7 @@ public:
     
     /** 常量 */
     static constexpr int getEmbeddingDim() { return 128; }
-    static constexpr int getTargetSampleRate() { return 44100.0; }
+    static constexpr int getTargetSampleRate() { return 44100; }
     static constexpr int getTargetSampleCount() { return 16384; }
     static constexpr int getNumParams() { return 11; }
     

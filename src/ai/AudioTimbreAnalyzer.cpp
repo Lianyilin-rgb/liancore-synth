@@ -78,7 +78,7 @@ bool AudioTimbreAnalyzer::loadModels(const juce::File& audioEncoderPath,
         paramRegressorLoaded_ = true;
         
         return true;
-    } catch (const Ort::Exception& e) {
+    } catch (const Ort::Exception&) {
         audioEncoderLoaded_ = false;
         paramRegressorLoaded_ = false;
         return false;
@@ -386,7 +386,7 @@ AudioTimbreAnalyzer::AnalysisResult AudioTimbreAnalyzer::analyzeFallback(
     while (fftSize < numSamples) fftSize <<= 1;
     if (fftSize > 16384) fftSize = 16384;
     
-    juce::dsp::FFT fft(std::log2(fftSize));
+    juce::dsp::FFT fft(static_cast<int>(std::log2(fftSize)));
     std::vector<float> fftData(fftSize * 2, 0.0f);
     for (int i = 0; i < std::min(numSamples, fftSize); ++i) {
         fftData[i * 2] = data[i];

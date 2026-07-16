@@ -140,10 +140,10 @@ public:
     // 参数访问 (子类可重写以暴露特定参数)
     // =========================================================================
     virtual int getNumParameters() const { return 0; }
-    virtual float getParameter(int index) const { return 0.0f; }
-    virtual void setParameter(int index, float value) {}
-    virtual juce::String getParameterName(int index) const { return {}; }
-    virtual juce::String getParameterText(int index) const { return {}; }
+    virtual float getParameter([[maybe_unused]] int index) const { return 0.0f; }
+    virtual void setParameter([[maybe_unused]] int index, [[maybe_unused]] float value) {}
+    virtual juce::String getParameterName([[maybe_unused]] int index) const { return {}; }
+    virtual juce::String getParameterText([[maybe_unused]] int index) const { return {}; }
 
     // =========================================================================
     // 性能监控
