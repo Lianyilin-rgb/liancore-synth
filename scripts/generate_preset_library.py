@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # =============================================================================
-# LianCore - 合成数据驱动预制库填充脚本
-# 生成 100,000+ 条合成器音色预设数据，写入 SQLite
+# LianCore - 合成数据驱动预制库填充脚本 (P7-1: 100万+扩展)
+# 生成 1,000,000+ 条合成器音色预设数据，写入 SQLite
 # =============================================================================
 """
 用法:
-    python generate_preset_library.py [--count 100000] [--db preset_library.db]
-                                      [--batch-size 5000] [--seed 42]
+    python generate_preset_library.py [--count 1000000] [--db preset_library_1M.db]
+                                      [--batch-size 10000] [--seed 42]
 
 输出:
     - SQLite 数据库文件 (预设表 + 版本历史表)
@@ -564,9 +564,9 @@ def insert_presets_batch(conn, presets_data):
 
 def main():
     parser = argparse.ArgumentParser(description="LianCore 合成数据驱动预制库填充脚本")
-    parser.add_argument("--count", type=int, default=100000, help="生成预设数量 (默认: 100000)")
-    parser.add_argument("--db", type=str, default="preset_library.db", help="数据库文件路径")
-    parser.add_argument("--batch-size", type=int, default=5000, help="批量插入大小 (默认: 5000)")
+    parser.add_argument("--count", type=int, default=1000000, help="生成预设数量 (默认: 1000000)")
+    parser.add_argument("--db", type=str, default="preset_library_1M.db", help="数据库文件路径")
+    parser.add_argument("--batch-size", type=int, default=10000, help="批量插入大小 (默认: 10000)")
     parser.add_argument("--seed", type=int, default=42, help="随机种子 (默认: 42)")
     parser.add_argument("--output-dir", type=str, default=".", help="输出目录")
     args = parser.parse_args()
@@ -591,7 +591,8 @@ def main():
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=OFF")
-    conn.execute("PRAGMA cache_size=-64000")
+    conn.execute("PRAGMA cache_size=-256000")  # P7-1: 256MB缓存以支持100万级数据
+    conn.execute("PRAGMA mmap_size=1073741824")  # P7-1: 1GB内存映射加速
     create_tables(conn)
 
     # 统计
@@ -659,8 +660,14 @@ def main():
             elapsed = time.time() - start_time
             rate = total_generated / elapsed if elapsed > 0 else 0
             pct = total_generated / args.count * 100
-            print(f"  [{total_generated:>8,}/{args.count:,}] {pct:5.1f}% | {rate:,.0f} 条/秒 | 耗时 {elapsed:.1f}s")
+            eta = (args.count - total_generated) / rate if rate > 0 else 0
+            print(f"  [{total_generated:>8,}/{args.count:,}] {pct:5.1f}% | {rate:,.0f} 条/秒 | ETA {eta:.0f}s | 耗时 {elapsed:.0f}s")
             batch = []
+
+            # P7-1: 每10万条做一次WAL检查点，控制WAL文件大小
+            if total_generated % 100000 == 0:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                print(f"  [检查点] WAL已截断于 {total_generated:,} 条")
 
     # 插入剩余数据
     if batch:
