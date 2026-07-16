@@ -1,0 +1,35 @@
+; LianCore V3 - 代码签名证书请求 (CSR) 模板 (P6-4)
+; 用于向CA申请代码签名证书
+; 用法: certreq -new request.inf request.csr
+;
+; 推荐的CA供应商:
+;   DigiCert (https://www.digicert.com/code-signing/)
+;   Sectigo (https://sectigo.com/ssl-certificates-tls/code-signing)
+;   GlobalSign (https://www.globalsign.com/en/code-signing-certificate)
+;   SSL.com (https://www.ssl.com/certificates/code-signing/)
+
+[Version]
+Signature="$Windows NT$"
+
+[NewRequest]
+Subject = "CN=LianCore Audio Synthesizer, O=LianCore, L=Shanghai, C=CN"
+KeyAlgorithm = RSA
+KeyLength = 4096
+KeySpec = 2     ; AT_SIGNATURE (数字签名)
+HashAlgorithm = SHA256
+Exportable = TRUE
+RequestType = PKCS10
+MachineKeySet = FALSE
+SMIME = FALSE
+UseExistingKeySet = FALSE
+
+[EnhancedKeyUsageExtension]
+OID = 1.3.6.1.5.5.7.3.3   ; 代码签名
+OID = 1.3.6.1.5.5.7.3.4   ; 安全电子邮件
+
+; 可选: EV代码签名 (需要额外组织验证)
+; [Extensions]
+; 2.5.29.32 = "{text}ca=1&amp;keyUsage=digitalSignature"
+; 1.3.6.1.4.1.311.60.2.1.1 = "LianCore"    ; EV OID: 组织名称
+; 1.3.6.1.4.1.311.60.2.1.2 = "Shanghai"     ; EV OID: 地区
+; 1.3.6.1.4.1.311.60.2.1.3 = "CN"           ; EV OID: 国家
