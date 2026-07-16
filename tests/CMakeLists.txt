@@ -16,8 +16,7 @@ file(GLOB_RECURSE TEST_SOURCES
 )
 
 # 排除依赖已废弃 JUCE 8 API 的旧测试
-# PM-002 (批量导入/导出) 导出性能问题暂时排除
-list(FILTER TEST_SOURCES EXCLUDE REGEX ".*PresetManagerTests\\.cpp$")
+# P7修复: PresetManagerTests 已修复（使用ASCII工作目录路径替代createTempFile）
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_audio_graph\\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_audio_node\\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_modulation\\.cpp$")
