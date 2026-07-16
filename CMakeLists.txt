@@ -134,6 +134,8 @@ juce_add_plugin(LianCore
         # UI 组件
         src/ui/WavetableEditor.cpp
         src/ui/MPERecordingUI.cpp
+        src/ui/GranularEngineUI.cpp
+        src/ui/GrainEnvelopeVisualizer.cpp
 
         # 插件入口
         src/plugin/PluginProcessor.cpp
@@ -282,6 +284,8 @@ target_sources(LianCore PRIVATE
     # UI 组件
     src/ui/WavetableEditor.cpp
     src/ui/MPERecordingUI.cpp
+    src/ui/GranularEngineUI.cpp
+    src/ui/GrainEnvelopeVisualizer.cpp
 
     # 插件入口
     src/plugin/PluginProcessor.cpp

@@ -8,6 +8,7 @@
 #include "PluginProcessor.h"
 #include "../ui/WavetableEditor.h"
 #include "../ui/MPERecordingUI.h"
+#include "../ui/GranularEngineUI.h"
 #include <unordered_map>
 #include <functional>
 
@@ -80,6 +81,7 @@ private:
     juce::TextButton aiTestButton_;
     juce::TextButton wavetableEditorButton_;
     juce::TextButton mpeRecordingButton_;
+    juce::TextButton granularEngineButton_;
     juce::TextEditor aiPromptInput_;
 
     // 波表编辑器 (P2-2)
@@ -89,6 +91,10 @@ private:
     // MPE录制UI (P6-1)
     MPERecordingUI mpeRecordingUI_;
     bool mpeRecordingVisible_ = false;
+
+    // 粒子合成引擎UI (P6-2)
+    GranularEngineUI granularEngineUI_;
+    bool granularEngineVisible_ = false;
 
     // WebSocket消息服务器
     UIMessageServer uiServer_;

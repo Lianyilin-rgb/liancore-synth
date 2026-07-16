@@ -15,6 +15,7 @@
 #include "MPERecorder.h"
 #include "OversamplingProcessor.h"
 #include "../tuning/MicrotuningManager.h"
+#include "../synthesis/GranularPlayer.h"
 
 namespace LianCore {
 
@@ -85,6 +86,11 @@ public:
     MPEPlayer& getMPEPlayer() { return mpePlayer_; }
 
     // =========================================================================
+    // 粒子合成引擎 (P5-1 → P6-2 UI)
+    // =========================================================================
+    GranularPlayer& getGranularPlayer() { return granularPlayer_; }
+
+    // =========================================================================
     // 微音程/调音支持 (P0-3)
     // =========================================================================
     Tuning::MicrotuningManager& getTuningManager() { return tuningManager_; }
@@ -128,6 +134,9 @@ private:
     // MPE 录制与回放 (P5-2)
     MPERecorder mpeRecorder_;
     MPEPlayer mpePlayer_;
+
+    // 粒子合成引擎 (P5-1 → P6-2 UI)
+    GranularPlayer granularPlayer_;
 
     // 微音程/调音支持 (P0-3)
     Tuning::MicrotuningManager tuningManager_;

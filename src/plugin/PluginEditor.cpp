@@ -303,6 +303,28 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     });
     mpeRecordingUI_.startUIUpdates(15);
 
+    // 粒子合成引擎按钮 (P6-2)
+    granularEngineButton_.setButtonText("粒子合成");
+    granularEngineButton_.onClick = [this]() {
+        granularEngineVisible_ = !granularEngineVisible_;
+        granularEngineUI_.setVisible(granularEngineVisible_);
+        if (granularEngineVisible_) {
+            granularEngineButton_.setButtonText("关闭粒子合成");
+            setSize(800, 800);
+        } else {
+            granularEngineButton_.setButtonText("粒子合成");
+            setSize(800, 560);
+        }
+        resized();
+    };
+    addAndMakeVisible(granularEngineButton_);
+    addChildComponent(granularEngineUI_); // 默认隐藏
+
+    // 设置粒子合成UI的播放器引用
+    granularEngineUI_.setPlayerRef([this]() -> GranularPlayer* {
+        return &processor_.getGranularPlayer();
+    });
+
     // AI提示输入
     aiPromptInput_.setMultiLine(false);
     aiPromptInput_.setTextToShowWhenEmpty("描述声音...", juce::Colour(0xFF555568));
@@ -376,6 +398,8 @@ void PluginEditor::resized() {
     buttonRow.removeFromLeft(4);
     mpeRecordingButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
     buttonRow.removeFromLeft(4);
+    granularEngineButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
+    buttonRow.removeFromLeft(4);
     openWebUIButton_.setBounds(buttonRow.withWidth(140).reduced(4, 2));
 
     area.removeFromTop(10);
@@ -394,6 +418,11 @@ void PluginEditor::resized() {
     // MPE录制UI (下半部分, P6-1)
     if (mpeRecordingVisible_) {
         mpeRecordingUI_.setBounds(0, 280, getWidth(), getHeight() - 280);
+    }
+
+    // 粒子合成引擎UI (下半部分, P6-2)
+    if (granularEngineVisible_) {
+        granularEngineUI_.setBounds(0, 280, getWidth(), getHeight() - 280);
     }
 }
 
