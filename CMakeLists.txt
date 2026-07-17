@@ -48,6 +48,11 @@ add_subdirectory(${JUCE_DIR})
 include(cmake/FindONNXRuntime.cmake)
 
 # =============================================================================
+# AAX SDK 集成 (Avid Pro Tools)
+# =============================================================================
+include(cmake/FindAAX.cmake)
+
+# =============================================================================
 # 插件配置
 # =============================================================================
 juce_add_plugin(LianCore
@@ -327,6 +332,21 @@ target_include_directories(LianCore PRIVATE
 if(ONNXRUNTIME_AVAILABLE)
     target_compile_definitions(LianCore PRIVATE LIANCORE_HAS_ONNX=1)
     target_include_directories(LianCore PRIVATE ${ONNXRUNTIME_DIR}/include)
+endif()
+
+# AAX SDK 条件编译
+if(LIANCORE_AAX_AVAILABLE)
+    target_include_directories(LianCore PRIVATE ${AAX_INCLUDE_DIRS})
+    target_compile_definitions(LianCore PRIVATE LIANCORE_HAS_AAX=1)
+    # AAX SDK 2.9.0+: 源码编译 AAX_Exports.cpp
+    if(AAX_EXPORTS_SOURCE)
+        target_sources(LianCore PRIVATE "${AAX_EXPORTS_SOURCE}")
+    endif()
+    # 旧版 SDK: 链接预编译库
+    if(AAX_LIBRARIES)
+        target_link_libraries(LianCore PRIVATE ${AAX_LIBRARIES})
+    endif()
+    message(STATUS "AAX build enabled")
 endif()
 
 # =============================================================================
