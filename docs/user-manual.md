@@ -468,5 +468,5 @@ MPE（MIDI Polyphonic Expression）允许每个音符独立控制弯音、压力
 
 ---
 
-> **版权信息**：LianCore V3 (c) 2024-2026 LianCore Audio. 保留所有权利。
+> **版权信息**：Copyright © 2024-2026 连毅霖. All rights reserved.
 > 本软件为纯端侧合成器，不依赖云端服务。

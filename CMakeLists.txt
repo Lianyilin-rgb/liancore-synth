@@ -57,7 +57,7 @@ include(cmake/FindAAX.cmake)
 # =============================================================================
 juce_add_plugin(LianCore
     # 插件元数据
-    COMPANY_NAME "LianCore Audio"
+    COMPANY_NAME "连毅霖"
     PLUGIN_MANUFACTURER_CODE Lian
     PLUGIN_CODE Lcr1
     PRODUCT_NAME "LianCore"

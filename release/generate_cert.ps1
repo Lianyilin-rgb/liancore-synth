@@ -5,7 +5,7 @@
 param(
     [string]$OutputPath = ".\release\LianCoreCert.pfx",
     [string]$CertPassword = "LianCore2024!",
-    [string]$SubjectName = "CN=LianCore Audio Synthesizer, O=LianCore, C=CN",
+    [string]$SubjectName = "CN=连毅霖, O=LianCore, C=CN",
     [int]$ValidYears = 3
 )
 
