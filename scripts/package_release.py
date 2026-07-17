@@ -65,10 +65,11 @@ def copy_models():
 def copy_presets():
     """复制预设数据库"""
     print("\nCopying preset database...")
-    src = os.path.join(PROJECT_ROOT, "data", "preset_library.db")
     dest_dir = os.path.join(STAGE_DIR, "Common Files/LianCore/Presets")
     os.makedirs(dest_dir, exist_ok=True)
-    
+
+    # 主预设库
+    src = os.path.join(PROJECT_ROOT, "data", "preset_library.db")
     if os.path.exists(src):
         dst = os.path.join(dest_dir, "preset_library.db")
         shutil.copy2(src, dst)
@@ -76,6 +77,16 @@ def copy_presets():
         print(f"  preset_library.db: {size / 1024 / 1024:.1f} MB")
     else:
         print("  WARNING: preset_library.db not found!")
+
+    # 工厂预设
+    factory_src = os.path.join(PROJECT_ROOT, "data", "factory_presets.db")
+    if os.path.exists(factory_src):
+        dst = os.path.join(dest_dir, "factory_presets.db")
+        shutil.copy2(factory_src, dst)
+        size = os.path.getsize(dst)
+        print(f"  factory_presets.db: {size / 1024 / 1024:.1f} MB")
+    else:
+        print("  WARNING: factory_presets.db not found! Run scripts/select_factory_presets.py first")
 
 
 def copy_wavetables():
@@ -113,11 +124,36 @@ def copy_plugin():
             if fname.endswith(".vst3"):
                 src = os.path.join(build_dir, fname)
                 dst = os.path.join(vst3_dir, fname)
-                shutil.copy2(src, dst)
-                print(f"  {fname}: {os.path.getsize(dst) / 1024 / 1024:.1f} MB")
+                if os.path.isdir(src):
+                    if os.path.exists(dst):
+                        shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copy2(src, dst)
+                print(f"  {fname}: {os.path.getsize(dst) / 1024 / 1024:.1f} MB" if os.path.isfile(dst) else f"  {fname}: directory")
     else:
         print(f"  WARNING: VST3 build not found at {build_dir}")
         print("  Build the plugin first: cmake --build build --config Release --target LianCore_VST3")
+
+
+def copy_docs():
+    """复制文档"""
+    print("\nCopying documentation...")
+    dest_dir = os.path.join(STAGE_DIR, "Common Files/LianCore/Docs")
+    os.makedirs(dest_dir, exist_ok=True)
+
+    docs = {
+        os.path.join(PROJECT_ROOT, "docs", "user-manual.md"): "user-manual.md",
+        os.path.join(PROJECT_ROOT, "docs", "quick-start.md"): "quick-start.md",
+    }
+
+    for src, fname in docs.items():
+        if os.path.exists(src):
+            dst = os.path.join(dest_dir, fname)
+            shutil.copy2(src, dst)
+            print(f"  {fname}: {os.path.getsize(dst)} bytes")
+        else:
+            print(f"  WARNING: {fname} not found")
 
 
 def create_install_manifest():
@@ -307,6 +343,7 @@ def main():
     copy_presets()
     copy_wavetables()
     copy_plugin()
+    copy_docs()
     create_install_manifest()
     generate_nsis_script()
     
