@@ -41,8 +41,8 @@ RequestExecutionLevel admin
 Section "LianCore VST3" SecVST3
     SetOutPath "$INSTDIR"
     
-    # VST3 插件 (目录形式)
-    File /r "stage\Common Files\VST3\LianCore.vst3"
+    # VST3 插件
+    File /r "stage\Common Files\VST3\*.vst3"
     
     # 数据文件目录
     SetOutPath "$PROGRAMFILES64\Common Files\LianCore\Models"
@@ -54,15 +54,9 @@ Section "LianCore VST3" SecVST3
     SetOutPath "$PROGRAMFILES64\Common Files\LianCore\Wavetables"
     File /r "stage\Common Files\LianCore\Wavetables\*"
     
-    # 文档
-    SetOutPath "$PROGRAMFILES64\Common Files\LianCore\Docs"
-    File /r "stage\Common Files\LianCore\Docs\*"
-    
     # 创建开始菜单
     CreateDirectory "$SMPROGRAMS\LianCore"
-    CreateShortCut "$SMPROGRAMS\LianCore\LianCore Website.lnk" "https://github.com/Lianyilin-rgb/liancore-synth"
-    CreateShortCut "$SMPROGRAMS\LianCore\Quick Start Guide.lnk" "$PROGRAMFILES64\Common Files\LianCore\Docs\quick-start.md"
-    CreateShortCut "$SMPROGRAMS\LianCore\User Manual.lnk" "$PROGRAMFILES64\Common Files\LianCore\Docs\user-manual.md"
+    CreateShortCut "$SMPROGRAMS\LianCore\LianCore Website.lnk" "https://liancore.audio"
     
     # 写入注册表
     WriteRegStr HKLM "Software\LianCore" "InstallDir" "$INSTDIR"
@@ -120,8 +114,8 @@ SectionEnd
 
 # ---- 卸载部分 ----
 Section "Uninstall"
-    # 删除 VST3 (目录)
-    RMDir /r "$INSTDIR\LianCore.vst3"
+    # 删除 VST3
+    Delete "$INSTDIR\LianCore.vst3"
     Delete "$INSTDIR\uninstall.exe"
     
     # 删除数据文件

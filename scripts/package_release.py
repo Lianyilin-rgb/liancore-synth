@@ -16,6 +16,7 @@ STAGE_DIR = os.path.join(OUTPUT_DIR, "stage")
 # 安装目录结构
 INSTALL_STRUCTURE = {
     "VST3": "Common Files/VST3/LianCore.vst3",
+    "AAX": "Common Files/Avid/Audio/Plug-Ins/LianCore.aaxplugin",
     "Models": "Common Files/LianCore/Models",
     "Presets": "Common Files/LianCore/Presets",
     "Wavetables": "Common Files/LianCore/Wavetables",
@@ -117,23 +118,68 @@ def copy_plugin():
     vst3_dir = os.path.join(STAGE_DIR, "Common Files/VST3")
     os.makedirs(vst3_dir, exist_ok=True)
     
-    # 检查构建产物
-    build_dir = os.path.join(PROJECT_ROOT, "build", "LianCore_artefacts", "Release", "VST3")
-    if os.path.exists(build_dir):
-        for fname in os.listdir(build_dir):
-            if fname.endswith(".vst3"):
-                src = os.path.join(build_dir, fname)
-                dst = os.path.join(vst3_dir, fname)
-                if os.path.isdir(src):
-                    if os.path.exists(dst):
-                        shutil.rmtree(dst)
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
-                print(f"  {fname}: {os.path.getsize(dst) / 1024 / 1024:.1f} MB" if os.path.isfile(dst) else f"  {fname}: directory")
-    else:
-        print(f"  WARNING: VST3 build not found at {build_dir}")
-        print("  Build the plugin first: cmake --build build --config Release --target LianCore_VST3")
+    # 检查多个可能的构建目录
+    build_dirs = [
+        os.path.join(PROJECT_ROOT, "build", "LianCore_artefacts", "Release", "VST3"),
+        "C:/LianCoreSrc/build_vst3/LianCore_artefacts/Release/VST3",
+    ]
+    
+    found = False
+    for build_dir in build_dirs:
+        if os.path.exists(build_dir):
+            for fname in os.listdir(build_dir):
+                if fname.endswith(".vst3"):
+                    src = os.path.join(build_dir, fname)
+                    dst = os.path.join(vst3_dir, fname)
+                    if os.path.isdir(src):
+                        if os.path.exists(dst):
+                            shutil.rmtree(dst)
+                        shutil.copytree(src, dst)
+                    else:
+                        shutil.copy2(src, dst)
+                    print(f"  {fname}: {os.path.getsize(dst) / 1024 / 1024:.1f} MB" if os.path.isfile(dst) else f"  {fname}: directory")
+                    found = True
+            if found:
+                break
+    
+    if not found:
+        print(f"  WARNING: VST3 build not found. Checked: {build_dirs}")
+        print("  Build the plugin first: cmake --build build_vst3 --config Release --target LianCore_VST3")
+
+
+def copy_aax_plugin():
+    """复制 AAX 插件"""
+    print("\nCopying AAX plugin...")
+    aax_dir = os.path.join(STAGE_DIR, "Common Files", "Avid", "Audio", "Plug-Ins")
+    os.makedirs(aax_dir, exist_ok=True)
+    
+    # 检查多个可能的构建目录
+    build_dirs = [
+        os.path.join(PROJECT_ROOT, "build", "LianCore_artefacts", "Release", "AAX"),
+        "C:/LianCoreSrc/build_vst3/LianCore_artefacts/Release/AAX",
+    ]
+    
+    found = False
+    for build_dir in build_dirs:
+        if os.path.exists(build_dir):
+            for fname in os.listdir(build_dir):
+                if fname.endswith(".aaxplugin"):
+                    src = os.path.join(build_dir, fname)
+                    dst = os.path.join(aax_dir, fname)
+                    if os.path.isdir(src):
+                        if os.path.exists(dst):
+                            shutil.rmtree(dst)
+                        shutil.copytree(src, dst)
+                    else:
+                        shutil.copy2(src, dst)
+                    print(f"  {fname}: directory")
+                    found = True
+            if found:
+                break
+    
+    if not found:
+        print(f"  WARNING: AAX build not found. Checked: {build_dirs}")
+        print("  Build the plugin first: cmake --build build_vst3 --config Release --target LianCore_AAX")
 
 
 def copy_docs():
@@ -343,6 +389,7 @@ def main():
     copy_presets()
     copy_wavetables()
     copy_plugin()
+    copy_aax_plugin()
     copy_docs()
     create_install_manifest()
     generate_nsis_script()
