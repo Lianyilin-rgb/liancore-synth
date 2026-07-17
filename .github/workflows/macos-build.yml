@@ -34,7 +34,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '15.3'
+          xcode-version: '26.6.0'
 
       - name: Install CMake
         run: brew install cmake
@@ -50,14 +50,14 @@ jobs:
         if: steps.cache-juce.outputs.cache-hit != 'true'
         run: |
           curl -L -o juce-8.0.14-osx.zip \
-            "https://github.com/juce-framework/JCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
+            "https://github.com/juce-framework/JUCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
           unzip juce-8.0.14-osx.zip
 
       - name: Configure CMake
         run: |
           cmake -B build_m -G Xcode \
-            -CMAKE_BUILD_TYPE=Release \
-            -CMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }}
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }}
 
       - name: Build VST3 + AU
         run: |
