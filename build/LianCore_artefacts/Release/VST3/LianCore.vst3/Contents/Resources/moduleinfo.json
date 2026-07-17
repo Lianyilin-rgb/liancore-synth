@@ -1,0 +1,23 @@
+{
+    "Name": "LianCore V3",
+    "Version": "3.0.0",
+    "Factory Info": {
+        "PFactoryInfo": {
+            "Vendor": "LianCore Audio",
+            "URL": "https://github.com/Lianyilin-rgb/liancore-synth",
+            "Email": "support@liancore.com",
+            "Flags": "Unicode, Classes Discardable, Component Non Discardable"
+        },
+        "PClassInfo": [
+            {
+                "Name": "LianCore V3",
+                "Category": "Fx|Instrument|Synth",
+                "SubCategories": "Instrument|Synth",
+                "Version": "3.0.0",
+                "SDKVersion": "VST 3.7.12",
+                "Cardinality": 2147483647,
+                "ClassFlags": 0
+            }
+        ]
+    }
+}

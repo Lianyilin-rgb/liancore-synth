@@ -1,0 +1,545 @@
+{
+  "title": "LianCore V3 DAW 兼容性测试报告 (P8-3)",
+  "version": "3.0.0",
+  "test_date": "2026-07-17T13:36:09.155259",
+  "vst3_path": "build/LianCore_artefacts/Release/VST3/LianCore.vst3",
+  "binary_analysis": {
+    "vst3_binary_exists": {
+      "status": "PASS",
+      "detail": "build/LianCore_artefacts/Release/VST3/LianCore.vst3\\Contents\\x86_64-win\\LianCore.vst3"
+    },
+    "vst3_architecture": {
+      "status": "PASS",
+      "detail": "x86_64"
+    },
+    "vst3_module_info": {
+      "status": "WARN",
+      "detail": "未找到 moduleinfo.json"
+    },
+    "vst3_factory": {
+      "status": "PASS",
+      "detail": "找到 3 个导出: GetPluginFactory, InitDll, ExitDll"
+    },
+    "vst3_dependencies": {
+      "status": "PASS",
+      "detail": "依赖: Visual C++ Runtime, MSVC Standard Library, SQLite, JUCE"
+    }
+  },
+  "daw_compatibility": {
+    "Ableton Live": {
+      "plugin_scan": {
+        "name": "DAW 插件扫描",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_load": {
+        "name": "插件加载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "gui_display": {
+        "name": "GUI 正常显示",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "param_control": {
+        "name": "参数控制响应",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "audio_output": {
+        "name": "音频输出正常",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "preset_switch": {
+        "name": "预设切换",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "automation": {
+        "name": "自动化参数",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "midi_learn": {
+        "name": "MIDI 学习",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "project_save": {
+        "name": "工程保存/恢复",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_unload": {
+        "name": "插件卸载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "memory_leak": {
+        "name": "无内存泄漏",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      }
+    },
+    "FL Studio": {
+      "plugin_scan": {
+        "name": "DAW 插件扫描",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_load": {
+        "name": "插件加载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "gui_display": {
+        "name": "GUI 正常显示",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "param_control": {
+        "name": "参数控制响应",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "audio_output": {
+        "name": "音频输出正常",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "preset_switch": {
+        "name": "预设切换",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "automation": {
+        "name": "自动化参数",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "midi_learn": {
+        "name": "MIDI 学习",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "project_save": {
+        "name": "工程保存/恢复",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_unload": {
+        "name": "插件卸载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "memory_leak": {
+        "name": "无内存泄漏",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      }
+    },
+    "Cubase": {
+      "plugin_scan": {
+        "name": "DAW 插件扫描",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_load": {
+        "name": "插件加载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "gui_display": {
+        "name": "GUI 正常显示",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "param_control": {
+        "name": "参数控制响应",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "audio_output": {
+        "name": "音频输出正常",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "preset_switch": {
+        "name": "预设切换",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "automation": {
+        "name": "自动化参数",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "midi_learn": {
+        "name": "MIDI 学习",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "project_save": {
+        "name": "工程保存/恢复",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_unload": {
+        "name": "插件卸载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "memory_leak": {
+        "name": "无内存泄漏",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      }
+    },
+    "Studio One": {
+      "plugin_scan": {
+        "name": "DAW 插件扫描",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_load": {
+        "name": "插件加载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "gui_display": {
+        "name": "GUI 正常显示",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "param_control": {
+        "name": "参数控制响应",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "audio_output": {
+        "name": "音频输出正常",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "preset_switch": {
+        "name": "预设切换",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "automation": {
+        "name": "自动化参数",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "midi_learn": {
+        "name": "MIDI 学习",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "project_save": {
+        "name": "工程保存/恢复",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_unload": {
+        "name": "插件卸载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "memory_leak": {
+        "name": "无内存泄漏",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      }
+    },
+    "Reaper": {
+      "plugin_scan": {
+        "name": "DAW 插件扫描",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_load": {
+        "name": "插件加载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "gui_display": {
+        "name": "GUI 正常显示",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "param_control": {
+        "name": "参数控制响应",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "audio_output": {
+        "name": "音频输出正常",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "preset_switch": {
+        "name": "预设切换",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "automation": {
+        "name": "自动化参数",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "midi_learn": {
+        "name": "MIDI 学习",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "project_save": {
+        "name": "工程保存/恢复",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_unload": {
+        "name": "插件卸载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "memory_leak": {
+        "name": "无内存泄漏",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      }
+    },
+    "Bitwig Studio": {
+      "plugin_scan": {
+        "name": "DAW 插件扫描",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_load": {
+        "name": "插件加载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "gui_display": {
+        "name": "GUI 正常显示",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "param_control": {
+        "name": "参数控制响应",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "audio_output": {
+        "name": "音频输出正常",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "preset_switch": {
+        "name": "预设切换",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "automation": {
+        "name": "自动化参数",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "midi_learn": {
+        "name": "MIDI 学习",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "project_save": {
+        "name": "工程保存/恢复",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "plugin_unload": {
+        "name": "插件卸载",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      },
+      "memory_leak": {
+        "name": "无内存泄漏",
+        "status": "PENDING",
+        "notes": "",
+        "daw_version": "",
+        "os_version": ""
+      }
+    }
+  },
+  "known_issues": {
+    "Ableton Live": [
+      "VST3 插件扫描路径：C:\\Program Files\\Common Files\\VST3\\",
+      "Live 11+ 对 VST3 支持良好，无需额外配置",
+      "注意：Live 的 VST3 扫描在启动时进行，安装后需重启 Live"
+    ],
+    "FL Studio": [
+      "FL Studio 21+ 完整支持 VST3",
+      "插件管理器 → 查找插件 → 添加路径",
+      "FL Studio 20 及以下版本对 VST3 支持有限"
+    ],
+    "Cubase": [
+      "Cubase 是 VST3 标准的制定者，兼容性最佳",
+      "VST3 插件自动识别，无需手动扫描",
+      "Cubase 12+ 完全支持 VST3"
+    ],
+    "Studio One": [
+      "Studio One 5+ 完整支持 VST3",
+      "选项 → 位置 → VST 插件 → 重置黑名单",
+      "如果插件未显示，检查 VST3 路径是否正确"
+    ],
+    "Reaper": [
+      "Reaper 6+ 完整支持 VST3",
+      "选项 → 首选项 → VST → 重新扫描",
+      "Reaper 的 VST3 兼容性极佳，适合测试"
+    ],
+    "Bitwig Studio": [
+      "Bitwig 原生支持 VST3",
+      "Bitwig 的沙箱机制可能阻止某些文件访问",
+      "预设库路径需要确保在 Bitwig 可访问的位置"
+    ]
+  },
+  "summary": {
+    "total_daws": 6,
+    "total_checks_per_daw": 11,
+    "daws_tested": 0,
+    "checks_total": 0,
+    "checks_passed": 0,
+    "checks_failed": 0,
+    "notes": "请在实际 DAW 环境中完成测试并填写状态"
+  }
+}
