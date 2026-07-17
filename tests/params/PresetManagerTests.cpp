@@ -172,12 +172,11 @@ TEST_CASE("Preset Manager: 基本CRUD操作", "[preset_manager][pm-001]") {
 
 // =============================================================================
 // PM-002: 批量导入/导出
-// P7修复: 暂时禁用。exportPresetFolder在SQLite WAL模式下存在堆损坏(0xC0000374)
-// 需要进一步调查PresetManager::exportPresetFolder中的内存管理问题
-// 已知问题: 在中文路径环境下运行后，SQLite WAL/SHM文件残留导致后续打开失败
+// P7修复: 根因是 exportPresetFolder 中栈分配 DynamicObject 被 juce::var 误当作
+// 堆分配引用计数对象，触发 0xC0000374 堆损坏。已修复为堆分配 juce::var。
 // =============================================================================
-#if 0 // P7: 禁用PM-002，等待PresetManager::exportPresetFolder修复
 TEST_CASE("Preset Manager: 批量导入/导出", "[preset_manager][pm-002]") {
+    auto mgr = createTestManager(true);
     REQUIRE(mgr->isDatabaseOpen()); // P7修复: 验证数据库连接
 
     // 使用系统Temp目录纯ASCII路径
@@ -243,7 +242,6 @@ TEST_CASE("Preset Manager: 批量导入/导出", "[preset_manager][pm-002]") {
     // 清理
     baseDir.deleteRecursively();
 }
-#endif // P7: 禁用PM-002
 
 // =============================================================================
 // PM-003: 标签自动建议

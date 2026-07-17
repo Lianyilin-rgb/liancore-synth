@@ -581,17 +581,19 @@ bool PresetManager::exportPresetFolder(const juce::File& folder, const juce::Str
 
     int exported = 0;
     for (const auto& preset : presets) {
-        // 创建JSON
-        juce::DynamicObject obj;
-        obj.setProperty("name", preset.name);
-        obj.setProperty("category", preset.category);
-        obj.setProperty("tags", preset.tags);
-        obj.setProperty("description", preset.description);
-        obj.setProperty("author", preset.author);
-        obj.setProperty("jsonData", preset.jsonData);
-        obj.setProperty("aiPrompt", preset.aiPrompt);
-        obj.setProperty("aiConfidence", preset.aiConfidence);
-        obj.setProperty("rating", preset.rating);
+        // P7修复: 堆分配 DynamicObject，避免栈分配 + juce::var(&obj) 导致的
+        // 引用计数在栈对象上操作，最终触发 0xC0000374 堆损坏
+        juce::var objVar(new juce::DynamicObject());
+        auto* obj = objVar.getDynamicObject();
+        obj->setProperty("name", preset.name);
+        obj->setProperty("category", preset.category);
+        obj->setProperty("tags", preset.tags);
+        obj->setProperty("description", preset.description);
+        obj->setProperty("author", preset.author);
+        obj->setProperty("jsonData", preset.jsonData);
+        obj->setProperty("aiPrompt", preset.aiPrompt);
+        obj->setProperty("aiConfidence", preset.aiConfidence);
+        obj->setProperty("rating", preset.rating);
 
         // 创建安全的文件名
         juce::String safeName = preset.name.replaceCharacter(' ', '_')
@@ -608,7 +610,7 @@ bool PresetManager::exportPresetFolder(const juce::File& folder, const juce::Str
         auto presetFile = folder.getChildFile(safeName + ".lcpreset");
         juce::FileOutputStream fos(presetFile);
         if (fos.openedOk()) {
-            fos.writeText(juce::JSON::toString(juce::var(&obj)), false, false, "\n");
+            fos.writeText(juce::JSON::toString(objVar), false, false, "\n");
             exported++;
         }
     }
