@@ -1,0 +1,41 @@
+LianCore V3 End User License Agreement (EULA)
+
+Copyright (c) 2024-2026 LianCore Audio. All rights reserved.
+
+IMPORTANT - READ CAREFULLY BEFORE INSTALLING THIS SOFTWARE.
+
+By installing and using LianCore V3 ("the Software"), you agree to be bound by the following terms:
+
+1. GRANT OF LICENSE
+   You are granted a non-exclusive, non-transferable license to use the Software on your devices for personal and commercial music production purposes.
+
+2. RESTRICTIONS
+   You may not:
+   - Reverse engineer, decompile, or disassemble the Software
+   - Redistribute, resell, or sublicense the Software
+   - Remove or modify any copyright notices
+   - Use the Software for any illegal purpose
+
+3. OWNERSHIP
+   The Software is licensed, not sold. All intellectual property rights remain with LianCore Audio.
+
+4. DISCLAIMER OF WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+
+5. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL LIANCORE AUDIO BE LIABLE FOR ANY DAMAGES ARISING FROM THE USE OF THIS SOFTWARE.
+
+6. TERMINATION
+   This license terminates automatically if you violate any of its terms.
+
+7. THIRD-PARTY COMPONENTS
+   This Software includes the following third-party components:
+   - JUCE Framework (GPLv3 / Commercial License)
+   - ONNX Runtime (MIT License)
+   - libfaad2 (GPLv3)
+   - libsndfile (LGPLv2.1)
+   - Catch2 (BSL-1.0)
+
+For the full text of third-party licenses, please visit the respective project websites.
+
+By clicking "I Agree" below, you acknowledge that you have read and understood this agreement.
