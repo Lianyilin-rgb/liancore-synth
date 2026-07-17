@@ -29,6 +29,22 @@ MANUALS = {
     ),
 }
 
+# 教程配置
+TUTORIALS = {
+    "zh-CN": (
+        os.path.join(PROJECT_ROOT, "docs", "manuals", "zh-CN", "tutorial.md"),
+        os.path.join(PROJECT_ROOT, "docs", "manuals", "zh-CN", "LianCoreV3_Tutorial_zh-CN.pdf"),
+    ),
+    "zh-TW": (
+        os.path.join(PROJECT_ROOT, "docs", "manuals", "zh-TW", "tutorial.md"),
+        os.path.join(PROJECT_ROOT, "docs", "manuals", "zh-TW", "LianCoreV3_Tutorial_zh-TW.pdf"),
+    ),
+    "en": (
+        os.path.join(PROJECT_ROOT, "docs", "manuals", "en", "tutorial.md"),
+        os.path.join(PROJECT_ROOT, "docs", "manuals", "en", "LianCoreV3_Tutorial_en.pdf"),
+    ),
+}
+
 # HTML 模板 - 包含水印 CSS 和打印样式
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="{lang}">
@@ -348,7 +364,15 @@ def main():
     success_count = 0
     fail_count = 0
 
+    print("\n--- 用户手册 ---")
     for lang, (md_path, pdf_path) in MANUALS.items():
+        if generate_pdf(md_path, pdf_path, lang):
+            success_count += 1
+        else:
+            fail_count += 1
+
+    print("\n--- 教学手册 ---")
+    for lang, (md_path, pdf_path) in TUTORIALS.items():
         if generate_pdf(md_path, pdf_path, lang):
             success_count += 1
         else:
