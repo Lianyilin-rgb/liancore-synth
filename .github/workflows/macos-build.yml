@@ -101,8 +101,21 @@ jobs:
           fi
 
       - name: Build VST3 + AU
+        id: build_plugin
         run: |
-          cmake --build build --config Release --parallel $(sysctl -n hw.logicalcpu)
+          cmake --build build --config Release --parallel $(sysctl -n hw.logicalcpu) \
+            > build/build.log 2>&1 || BUILD_ERR=$?
+          BUILD_EXIT=${BUILD_ERR:-$?}
+          echo "Build exit code: $BUILD_EXIT"
+          if [ "$BUILD_EXIT" != "0" ]; then
+            echo "=== Build Error (last 100 lines) ==="
+            tail -100 build/build.log
+            echo "=== Error lines ==="
+            grep -i 'error:' build/build.log | head -20 | while read line; do
+              echo "::error file=src/plugin/PluginProcessor.cpp::${line}"
+            done
+            exit $BUILD_EXIT
+          fi
 
       - name: Verify Build Artifacts
         run: |
