@@ -76,12 +76,15 @@ jobs:
       - name: Show CMake configure log (on failure)
         if: steps.cmake_configure.outcome == 'failure'
         run: |
-          echo "=== CMake configure failed. Showing logs ==="
-          cat build_m/cmake_configure.log || echo "No log file found"
-          echo "=== CMakeError.log ==="
-          cat build_m/CMakeFiles/CMakeError.log 2>/dev/null || echo "No CMakeError.log"
-          echo "=== CMakeOutput.log ==="
-          cat build_m/CMakeFiles/CMakeOutput.log 2>/dev/null || echo "No CMakeOutput.log"
+          echo "## CMake Configure Failed" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat build_m/cmake_configure.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no log file)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## CMakeError.log" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat build_m/CMakeFiles/CMakeError.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no CMakeError.log)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Fail if CMake configure failed
         if: steps.cmake_configure.outcome == 'failure'
