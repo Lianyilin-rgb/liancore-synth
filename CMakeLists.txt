@@ -219,9 +219,34 @@ if(ONNXRUNTIME_AVAILABLE)
     target_link_libraries(LianCore PRIVATE onnxruntime)
 endif()
 
-# macOS: 强制 ALL_BUILD 依赖 LianCore_All 以确保 VST3/AU 插件二进制被构建
-# JUCE 8.0.14 + Xcode 生成器默认不构建插件 wrapper target，需显式添加依赖
+# =============================================================================
+# macOS: JUCE Plugin Target Diagnostics & Build Fix
+# =============================================================================
 if(APPLE)
+    message(STATUS "=== JUCE Plugin Target Diagnostics ===")
+    if(TARGET LianCore)
+        message(STATUS "  LianCore: EXISTS")
+    else()
+        message(STATUS "  LianCore: MISSING")
+    endif()
+    if(TARGET LianCore_All)
+        message(STATUS "  LianCore_All: EXISTS")
+    else()
+        message(STATUS "  LianCore_All: MISSING")
+    endif()
+    if(TARGET LianCore_VST3)
+        message(STATUS "  LianCore_VST3: EXISTS")
+    else()
+        message(STATUS "  LianCore_VST3: MISSING")
+    endif()
+    if(TARGET LianCore_A)
+        message(STATUS "  LianCore_A: EXISTS")
+    else()
+        message(STATUS "  LianCore_A: MISSING")
+    endif()
+    message(STATUS "=== End Plugin Target Diagnostics ===")
+
+    # 强制 ALL_BUILD 依赖 LianCore_All 以确保所有插件格式被构建
     if(TARGET ALL_BUILD AND TARGET LianCore_All)
         add_dependencies(ALL_BUILD LianCore_All)
     endif()
