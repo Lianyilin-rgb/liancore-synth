@@ -121,6 +121,7 @@ def copy_plugin():
     # 检查多个可能的构建目录
     build_dirs = [
         os.path.join(PROJECT_ROOT, "build", "LianCore_artefacts", "Release", "VST3"),
+        "C:/LianCore/build_vst3/LianCore_artefacts/Release/VST3",
         "C:/LianCoreSrc/build_vst3/LianCore_artefacts/Release/VST3",
     ]
     
@@ -156,6 +157,7 @@ def copy_aax_plugin():
     # 检查多个可能的构建目录
     build_dirs = [
         os.path.join(PROJECT_ROOT, "build", "LianCore_artefacts", "Release", "AAX"),
+        "C:/LianCore/build_vst3/LianCore_artefacts/Release/AAX",
         "C:/LianCoreSrc/build_vst3/LianCore_artefacts/Release/AAX",
     ]
     
@@ -188,6 +190,7 @@ def copy_docs():
     dest_dir = os.path.join(STAGE_DIR, "Common Files/LianCore/Docs")
     os.makedirs(dest_dir, exist_ok=True)
 
+    # 基础文档
     docs = {
         os.path.join(PROJECT_ROOT, "docs", "user-manual.md"): "user-manual.md",
         os.path.join(PROJECT_ROOT, "docs", "quick-start.md"): "quick-start.md",
@@ -200,6 +203,40 @@ def copy_docs():
             print(f"  {fname}: {os.path.getsize(dst)} bytes")
         else:
             print(f"  WARNING: {fname} not found")
+
+    # 用户手册 PDF（三种语言）
+    manual_dir = os.path.join(STAGE_DIR, "Common Files/LianCore/Docs/User Manual")
+    os.makedirs(manual_dir, exist_ok=True)
+    manual_pdfs = {
+        "zh-CN": "LianCoreV3_User_Manual_zh-CN.pdf",
+        "zh-TW": "LianCoreV3_User_Manual_zh-TW.pdf",
+        "en": "LianCoreV3_User_Manual_en.pdf",
+    }
+    for lang, fname in manual_pdfs.items():
+        src = os.path.join(PROJECT_ROOT, "docs", "manuals", lang, fname)
+        if os.path.exists(src):
+            dst = os.path.join(manual_dir, fname)
+            shutil.copy2(src, dst)
+            print(f"  User Manual ({lang}): {os.path.getsize(dst) / 1024:.1f} KB")
+        else:
+            print(f"  WARNING: User Manual ({lang}) not found")
+
+    # 教学手册 PDF（三种语言）
+    tutorial_dir = os.path.join(STAGE_DIR, "Common Files/LianCore/Docs/Tutorial")
+    os.makedirs(tutorial_dir, exist_ok=True)
+    tutorial_pdfs = {
+        "zh-CN": "LianCoreV3_Tutorial_zh-CN.pdf",
+        "zh-TW": "LianCoreV3_Tutorial_zh-TW.pdf",
+        "en": "LianCoreV3_Tutorial_en.pdf",
+    }
+    for lang, fname in tutorial_pdfs.items():
+        src = os.path.join(PROJECT_ROOT, "docs", "manuals", lang, fname)
+        if os.path.exists(src):
+            dst = os.path.join(tutorial_dir, fname)
+            shutil.copy2(src, dst)
+            print(f"  Tutorial ({lang}): {os.path.getsize(dst) / 1024:.1f} KB")
+        else:
+            print(f"  WARNING: Tutorial ({lang}) not found")
 
 
 def create_install_manifest():
@@ -252,7 +289,7 @@ RequestExecutionLevel admin
 # ---- 版本 ----
 !define VERSION "3.0.0"
 !define PRODUCT_NAME "LianCore"
-!define MANUFACTURER "Lian Audio"
+!define MANUFACTURER "连毅霖"
 
 # ---- 界面设置 ----
 !define MUI_ABORTWARNING
@@ -392,12 +429,12 @@ def main():
     copy_aax_plugin()
     copy_docs()
     create_install_manifest()
-    generate_nsis_script()
+    # generate_nsis_script()  # 禁用自动生成，使用手动维护的 release/installer.nsi
     
     print("\n" + "=" * 60)
     print("Package staging complete!")
     print(f"Staging directory: {STAGE_DIR}")
-    print(f"NSIS script: {OUTPUT_DIR}/installer.nsi")
+    print(f"NSIS script: manual (release/installer.nsi)")
     print("\nTo build the installer:")
     print("  1. Install NSIS (https://nsis.sourceforge.io)")
     print("  2. Build plugin: cmake --build build --config Release --target LianCore_VST3")

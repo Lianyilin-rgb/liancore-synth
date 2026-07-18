@@ -1,4 +1,7 @@
-; =============================================================================
+"""Write NSIS installer script with ASCII encoding."""
+import os
+
+NSI_CONTENT = r"""; =============================================================================
 ; LianCore V3 - NSIS Installer Script
 ; Copyright (c) 2024-2026 LianCore. All rights reserved.
 ; =============================================================================
@@ -138,3 +141,14 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${SecTutorialEN} "Detailed tutorial - English (PDF)"
     !insertmacro MUI_DESCRIPTION_TEXT ${SecStartMenu} "Start menu shortcuts and quick links"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
+"""
+
+def main():
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    nsi_path = os.path.join(project_root, "release", "installer.nsi")
+    with open(nsi_path, 'w', encoding='ascii') as f:
+        f.write(NSI_CONTENT)
+    print(f"Written: {nsi_path} ({len(NSI_CONTENT)} bytes)")
+
+if __name__ == "__main__":
+    main()
