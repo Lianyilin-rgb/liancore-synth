@@ -3,7 +3,7 @@
 # 根CMake构建文件
 # =============================================================================
 cmake_minimum_required(VERSION 3.24)
-project(LianCore VERSION 3.0.0 LANGUAGES CXX)
+project(LianCore VERSION 3.0.0 LANGUAGES C CXX)
 
 # C++20 标准要求
 set(CMAKE_CXX_STANDARD 20)
