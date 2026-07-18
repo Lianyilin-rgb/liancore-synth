@@ -134,9 +134,9 @@ jobs:
           echo "=== Running tests ==="
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
             echo "Running x86_64 tests under Rosetta 2"
-            arch -x86_64 ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
+            arch -x86_64 ./build/tests/Release/LianCoreTests -s -r compact || TEST_EXIT=$?
           else
-            ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
+            ./build/tests/Release/LianCoreTests -s -r compact || TEST_EXIT=$?
           fi
           echo "Test exit code: ${TEST_EXIT:-0}"
           # SIGTRAP (133) / SIGILL (132) are known macOS test binary crashes
