@@ -398,6 +398,28 @@ if(APPLE)
         ${JUCE_DIR}/modules/juce_dsp/juce_dsp.cpp
         PROPERTIES LANGUAGE OBJCXX
     )
+
+    # =============================================================================
+    # macOS: 将 VST3/AU 插件包装器源文件添加到静态库
+    # JUCE 8.0.14 的 MODULE 库在 Unix Makefiles 下不产生输出
+    # 将包装器代码编译进静态库，确保链接时包含插件入口点
+    # =============================================================================
+    target_sources(LianCore PRIVATE
+        # VST3 包装器
+        ${JUCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp
+        ${JUCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm
+        # AU 包装器 (AudioUnit)
+        ${JUCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm
+        ${JUCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm
+    )
+
+    # AU/VST3 包装器 .mm 文件需要 Objective-C++ 编译
+    set_source_files_properties(
+        ${JUCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm
+        ${JUCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm
+        ${JUCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm
+        PROPERTIES LANGUAGE OBJCXX
+    )
 endif()
 
 # ONNX Runtime 条件编译定义
