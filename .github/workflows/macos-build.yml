@@ -102,10 +102,18 @@ jobs:
             exit $CMAKE_EXIT
           fi
 
+      - name: List CMake Targets (Diagnostic)
+        run: |
+          echo "=== CMake Targets ==="
+          cmake --build build --target help 2>&1 | head -50
+          echo "=== Check for LianCore_All target ==="
+          cmake --build build --target LianCore_All --dry-run 2>&1 | head -20 || echo "LianCore_All not found or dry-run not supported"
+
       - name: Build VST3 + AU
         id: build_plugin
         run: |
           # Unix Makefiles: LianCore_All target 会正确触发所有插件格式的构建
+          # 先尝试构建 LianCore_All，如果失败则尝试构建所有已知 target
           cmake --build build --target LianCore_All --parallel $(sysctl -n hw.logicalcpu) \
             > build/build.log 2>&1 || BUILD_ERR=$?
           BUILD_EXIT=${BUILD_ERR:-$?}
@@ -118,8 +126,15 @@ jobs:
             done
             exit $BUILD_EXIT
           fi
-          echo "=== 构建产物 ==="
+          echo "=== 构建产物 (LianCore_artefacts) ==="
           find build/LianCore_artefacts -type f 2>/dev/null | head -50
+          echo "=== 搜索整个 build 目录的 VST3/AU ==="
+          find build -name "*.vst3" -type d 2>/dev/null | head -20
+          find build -name "*.component" -type d 2>/dev/null | head -20
+          echo "=== 搜索所有 Mach-O 二进制 ==="
+          find build -type f -perm +111 2>/dev/null | head -20
+          echo "=== build 目录结构 ==="
+          find build -maxdepth 3 -type d 2>/dev/null | head -30
 
       - name: Verify Build Artifacts
         run: |
