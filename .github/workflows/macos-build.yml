@@ -104,7 +104,7 @@ jobs:
       - name: Build VST3 + AU
         id: build_plugin
         run: |
-          cmake --build build --config Release --parallel $(sysctl -n hw.logicalcpu) \
+          cmake --build build --config Release --target LianCore_All --parallel $(sysctl -n hw.logicalcpu) \
             > build/build.log 2>&1 || BUILD_ERR=$?
           BUILD_EXIT=${BUILD_ERR:-$?}
           echo "Build exit code: $BUILD_EXIT"
