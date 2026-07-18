@@ -77,6 +77,16 @@ jobs:
           ls -la JUCE/CMakeLists.txt || echo "JUCE/CMakeLists.txt not found"
           echo "=== JUCE modules ==="
           ls JUCE/modules/ 2>/dev/null || echo "JUCE/modules/ not found"
+          echo "=== Test JUCE path from subdirectory ==="
+          mkdir -p test_path
+          cd test_path
+          echo "Current dir: $(pwd)"
+          if [ -f "../JUCE/CMakeLists.txt" ]; then
+            echo "JUCE FOUND from test_path: ../JUCE/CMakeLists.txt"
+          else
+            echo "JUCE NOT FOUND from test_path!"
+            ls -la ../
+          fi
 
       - name: Test CMake (minimal - diagnostic)
         run: |
