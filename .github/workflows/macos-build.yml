@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v8
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v9
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -92,51 +92,51 @@ jobs:
             grep -i 'error|fatal|CMake Error' build/cmake_configure.log | head -20
             exit $CMAKE_EXIT
           fi
-          echo "=== Xcode schemes ==="
-          xcodebuild -project build/LianCore.xcodeproj -list 2>&1 | head -40
+          echo "=== CMake configure diagnostics (grep for plugin targets) ==="
+          grep -i "LianCore_VST3\|LianCore_AU\|LianCore_All\|plugin target\|active_formats\|active_plugin" build/cmake_configure.log | head -30
           echo "=== Xcode targets ==="
-          xcodebuild -project build/LianCore.xcodeproj -list 2>&1 | grep -A 100 "Targets:" | head -30
+          xcodebuild -project build/LianCore.xcodeproj -list 2>&1 | head -60
 
-      - name: Build VST3 (xcodebuild scheme)
+      - name: Build VST3 (xcodebuild target)
         id: build_vst3
         run: |
-          echo "=== Building VST3 scheme ==="
+          echo "=== Building VST3 target ==="
           xcodebuild -project build/LianCore.xcodeproj \
-            -scheme "LianCore - VST3" \
+            -target LianCore_VST3 \
             -configuration Release \
             -arch ${{ matrix.cmake_arch }} \
-            -parallelizeTargets \
             build 2>&1 | tee build/build_vst3.log
           BUILD_EXIT=${PIPESTATUS[0]}
+          echo "Build exit code: $BUILD_EXIT"
           if [ "$BUILD_EXIT" != "0" ]; then
-            echo "VST3 build failed. Trying alternative scheme names..."
-            xcodebuild -project build/LianCore.xcodeproj -list 2>&1 | head -30
+            echo "=== VST3 build log (last 30 lines) ==="
             tail -30 build/build_vst3.log
+            echo "=== Trying alternative target names ==="
+            xcodebuild -project build/LianCore.xcodeproj -list 2>&1 | head -30
             exit $BUILD_EXIT
           fi
           echo "=== VST3 build result ==="
           find build -name "*.vst3" -type d 2>/dev/null | head -10
           find build -name "LianCore" -type f 2>/dev/null | head -10
 
-      - name: Build AU (xcodebuild scheme)
+      - name: Build AU (xcodebuild target)
         id: build_au
         run: |
-          echo "=== Building AU scheme ==="
+          echo "=== Building AU target ==="
           xcodebuild -project build/LianCore.xcodeproj \
-            -scheme "LianCore - AU" \
+            -target LianCore_AU \
             -configuration Release \
             -arch ${{ matrix.cmake_arch }} \
-            -parallelizeTargets \
             build 2>&1 | tee build/build_au.log
           BUILD_EXIT=${PIPESTATUS[0]}
+          echo "Build exit code: $BUILD_EXIT"
           if [ "$BUILD_EXIT" != "0" ]; then
-            echo "AU build failed. Trying alternative scheme names..."
+            echo "=== AU build log (last 30 lines) ==="
             tail -30 build/build_au.log
             exit $BUILD_EXIT
           fi
           echo "=== AU build result ==="
           find build -name "*.component" -type d 2>/dev/null | head -10
-          find build -name "LianCore" -type f 2>/dev/null | head -10
 
       - name: Verify Build Artifacts
         run: |
@@ -148,7 +148,6 @@ jobs:
           else
             echo "VST3 binary: NOT FOUND, searching everywhere..."
             find build -path "*/MacOS/LianCore" -type f 2>/dev/null | head -10
-            find build -name "LianCore" -type f 2>/dev/null | head -10
           fi
           echo "=== AU Binary ==="
           AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
@@ -156,7 +155,7 @@ jobs:
             ls -la "$AU_BIN"
             echo "AU binary: OK"
           else
-            echo "AU binary: NOT FOUND, searching everywhere..."
+            echo "AU binary: NOT FOUND"
           fi
           find build/LianCore_artefacts/Release -type f 2>/dev/null | head -50
 
@@ -215,11 +214,11 @@ jobs:
           mkdir -p dmg_staging
           if [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ]; then
             cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
-            echo "VST3 copied to DMG staging"
+            echo "VST3 copied"
           fi
           if [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ]; then
             cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
-            echo "AU copied to DMG staging"
+            echo "AU copied"
           fi
           ls -laR dmg_staging/
           hdiutil create -volname "LianCore V3" \
