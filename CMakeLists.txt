@@ -404,6 +404,20 @@ if(APPLE)
     # 手动将包装器源文件加入 target_sources 以确保 MODULE 库包含入口点
     set(JUCE_PLUGIN_CLIENT_DIR ${JUCE_DIR}/modules/juce_audio_plugin_client)
 
+    # 定义插件格式宏 (juce_CheckSettingMacros.h 需要)
+    # 这些宏通常由 JUCE 的 CMake 函数自动定义，但 direct target_sources 需要手动设置
+    target_compile_definitions(LianCore PRIVATE
+        JUCE_PLUGINBUILD=1
+        JucePlugin_Build_VST=1
+        JucePlugin_Build_VST3=1
+        JucePlugin_Build_AU=1
+        JucePlugin_Build_AUv3=0
+        JucePlugin_Build_AAX=0
+        JucePlugin_Build_Standalone=0
+        JucePlugin_Build_Unity=0
+        JucePlugin_Enable_IAA=0
+    )
+
     target_sources(LianCore PRIVATE
         ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_VST3.cpp
         ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_VST3.mm
@@ -425,7 +439,7 @@ if(APPLE)
         ${JUCE_PLUGIN_CLIENT_DIR}
     )
 
-    message(STATUS "  [LianCore] Added VST3/AU wrapper sources for macOS plugin bundle")
+    message(STATUS "  [LianCore] Added VST3/AU wrapper sources + compile definitions for macOS plugin bundle")
 endif()
 
 # ONNX Runtime 条件编译定义
