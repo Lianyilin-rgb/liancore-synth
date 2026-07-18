@@ -86,6 +86,16 @@ jobs:
           cat build_m/CMakeFiles/CMakeError.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no CMakeError.log)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      - name: Upload CMake diagnose log
+        if: steps.cmake_configure.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-diagnose-${{ matrix.name }}
+          path: |
+            build_m/cmake_configure.log
+            build_m/CMakeFiles/CMakeError.log
+            build_m/CMakeFiles/CMakeOutput.log
+
       - name: Fail if CMake configure failed
         if: steps.cmake_configure.outcome == 'failure'
         run: exit 1
