@@ -34,7 +34,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '16.3'
 
       - name: Install CMake
         run: brew install cmake
@@ -67,10 +67,13 @@ jobs:
       - name: Configure CMake
         id: cmake_configure
         run: |
+          mkdir -p build_m
           cmake -B build_m -G Xcode \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
             2>&1 | tee build_m/cmake_configure.log
+          echo "CMake exit code: ${PIPESTATUS[0]}" | tee -a build_m/cmake_configure.log
+          exit ${PIPESTATUS[0]}
         continue-on-error: true
 
       - name: Show CMake configure log (on failure)
