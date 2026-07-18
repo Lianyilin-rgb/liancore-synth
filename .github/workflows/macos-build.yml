@@ -16,7 +16,7 @@ jobs:
         arch: [arm64, x86_64]
         include:
           - arch: arm64
-            runner: macos-14
+            runner: macos-latest
             cmake_arch: arm64
           - arch: x86_64
             runner: macos-13

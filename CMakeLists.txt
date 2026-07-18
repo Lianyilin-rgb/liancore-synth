@@ -5,6 +5,11 @@
 cmake_minimum_required(VERSION 3.24)
 project(LianCore VERSION 3.0.0 LANGUAGES C CXX)
 
+# macOS 需要 Objective-C++ 支持（JUCE 内部使用 AppKit/Foundation）
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 # C++20 标准要求
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
