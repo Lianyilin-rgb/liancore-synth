@@ -32,6 +32,7 @@ CTestTestfile.cmake
 
 # 依赖库
 libs/JUCE/
+juce-8.0.14-*/
 
 # 用户数据
 UserData/
