@@ -120,10 +120,14 @@ jobs:
 
       - name: Verify Build Artifacts
         run: |
+          echo "=== Build Directory Structure ==="
+          find build/LianCore_artefacts -type f 2>/dev/null | head -50 || echo "No LianCore_artefacts directory"
+          echo "=== CMake Targets ==="
+          cmake --build build --target help 2>/dev/null | head -30 || echo "Cannot list targets"
           echo "=== VST3 ==="
-          ls -la build/LianCore_artefacts/VST3/LianCore.vst3/Contents/MacOS/LianCore || echo "VST3 binary not found"
+          ls -laR build/LianCore_artefacts/VST3/ 2>/dev/null || echo "VST3 directory not found"
           echo "=== AU ==="
-          ls -la build/LianCore_artefacts/AU/LianCore.component/Contents/MacOS/LianCore || echo "AU binary not found"
+          ls -laR build/LianCore_artefacts/AU/ 2>/dev/null || echo "AU directory not found"
 
       - name: Build Tests
         run: |
