@@ -104,7 +104,7 @@ jobs:
       - name: Build VST3 + AU
         id: build_plugin
         run: |
-          cmake --build build --config Release --target ALL_BUILD --parallel $(sysctl -n hw.logicalcpu) \
+          cmake --build build --config Release --target LianCore_All --parallel $(sysctl -n hw.logicalcpu) \
             > build/build.log 2>&1 || BUILD_ERR=$?
           BUILD_EXIT=${BUILD_ERR:-$?}
           echo "Build exit code: $BUILD_EXIT"
@@ -120,10 +120,22 @@ jobs:
 
       - name: Verify Build Artifacts
         run: |
-          echo "=== VST3 ==="
-          ls -la build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore || echo "VST3 binary not found"
-          echo "=== AU ==="
-          ls -la build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore || echo "AU binary not found"
+          echo "=== VST3 Binary ==="
+          if [ -f "build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore" ]; then
+            ls -la build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore
+            echo "VST3 binary: OK"
+          else
+            echo "VST3 binary: NOT FOUND"
+          fi
+          echo "=== AU Binary ==="
+          if [ -f "build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore" ]; then
+            ls -la build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore
+            echo "AU binary: OK"
+          else
+            echo "AU binary: NOT FOUND"
+          fi
+          echo "=== All artifacts ==="
+          find build/LianCore_artefacts/Release -type f 2>/dev/null | head -30
 
       - name: Build Tests
         run: |
@@ -159,21 +171,45 @@ jobs:
       - name: Package DMG (arm64)
         if: matrix.arch == 'arm64'
         run: |
+          echo "=== 预检查：验证二进制文件 ==="
+          VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
+          AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
+          HAS_BINARIES=false
+
+          if [ -f "$VST3_BIN" ]; then
+            echo "VST3 binary found: $(ls -la $VST3_BIN)"
+            HAS_BINARIES=true
+          else
+            echo "::warning::VST3 binary not found at $VST3_BIN"
+          fi
+
+          if [ -f "$AU_BIN" ]; then
+            echo "AU binary found: $(ls -la $AU_BIN)"
+            HAS_BINARIES=true
+          else
+            echo "::warning::AU binary not found at $AU_BIN"
+          fi
+
+          if [ "$HAS_BINARIES" = "false" ]; then
+            echo "::error::No plugin binaries found! DMG will be empty. Aborting."
+            echo "=== Diagnostic: listing all build artifacts ==="
+            find build/LianCore_artefacts -type f 2>/dev/null | head -50
+            echo "=== Diagnostic: listing Xcode targets ==="
+            xcodebuild -project build/LianCore.xcodeproj -list 2>/dev/null || echo "Cannot list Xcode targets"
+            exit 1
+          fi
+
           echo "=== 打包 DMG ==="
           mkdir -p dmg_staging
           # 复制 VST3
           if [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ]; then
             cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
-            echo "VST3 copied"
-          else
-            echo "VST3 not found, skipping"
+            echo "VST3 copied to DMG staging"
           fi
           # 复制 AU (如果存在)
           if [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ]; then
             cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
-            echo "AU copied"
-          else
-            echo "AU not found, skipping"
+            echo "AU copied to DMG staging"
           fi
           echo "=== DMG 内容 ==="
           ls -laR dmg_staging/
@@ -184,6 +220,11 @@ jobs:
             LianCoreV3-macOS.dmg
           echo "=== DMG 文件信息 ==="
           ls -la LianCoreV3-macOS.dmg
+          DMG_SIZE=$(stat -f%z LianCoreV3-macOS.dmg 2>/dev/null || echo "0")
+          echo "DMG size: $DMG_SIZE bytes"
+          if [ "$DMG_SIZE" -lt 10000000 ]; then
+            echo "::warning::DMG is smaller than 10MB, may be incomplete"
+          fi
           echo "DMG created successfully"
 
       - name: Upload DMG Artifact
