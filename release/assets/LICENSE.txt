@@ -1,6 +1,6 @@
 LianCore V3 End User License Agreement (EULA)
 
-Copyright (c) 2024-2026 LianCore Audio. All rights reserved.
+Copyright (c) 2024-2026 连毅霖. All rights reserved.
 
 IMPORTANT - READ CAREFULLY BEFORE INSTALLING THIS SOFTWARE.
 
@@ -17,13 +17,13 @@ By installing and using LianCore V3 ("the Software"), you agree to be bound by t
    - Use the Software for any illegal purpose
 
 3. OWNERSHIP
-   The Software is licensed, not sold. All intellectual property rights remain with LianCore Audio.
+   The Software is licensed, not sold. All intellectual property rights remain with 连毅霖.
 
 4. DISCLAIMER OF WARRANTY
    THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 5. LIMITATION OF LIABILITY
-   IN NO EVENT SHALL LIANCORE AUDIO BE LIABLE FOR ANY DAMAGES ARISING FROM THE USE OF THIS SOFTWARE.
+   IN NO EVENT SHALL 连毅霖 BE LIABLE FOR ANY DAMAGES ARISING FROM THE USE OF THIS SOFTWARE.
 
 6. TERMINATION
    This license terminates automatically if you violate any of its terms.
