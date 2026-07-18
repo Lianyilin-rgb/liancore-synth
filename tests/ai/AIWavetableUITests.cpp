@@ -26,7 +26,7 @@ static float computeRMS(const juce::AudioBuffer<float>& buffer, int channel = 0)
 // =============================================================================
 // AI-001: AI波表生成 - 文本到波表
 // =============================================================================
-TEST_CASE("AI Wavetable: 文本描述生成波表", "[ai_wavetable][ai-001]") {
+TEST_CASE("AI Wavetable: text generates wavetable", "[ai_wavetable][ai-001]") {
     SECTION("生成明亮的锯齿波") {
         auto result = AITextToWavetable::generate("bright saw wave");
         REQUIRE(result.success);
@@ -113,7 +113,7 @@ TEST_CASE("AI Wavetable: 文本描述生成波表", "[ai_wavetable][ai-001]") {
 // AI-002: AI波表 - 生成后数据完整性验证
 // 验证: 生成→加载到WavetableBank→数据非静音
 // =============================================================================
-TEST_CASE("AI Wavetable: 生成后数据完整性验证", "[ai_wavetable][ai-002]") {
+TEST_CASE("AI Wavetable: data integrity check", "[ai_wavetable][ai-002]") {
     // AI生成波表
     auto result = AITextToWavetable::generate("bright saw wave");
     REQUIRE(result.success);
@@ -155,7 +155,7 @@ TEST_CASE("AI Wavetable: 生成后数据完整性验证", "[ai_wavetable][ai-002
 // =============================================================================
 // AI-003: AI波表 - 谐波结构验证
 // =============================================================================
-TEST_CASE("AI Wavetable: 谐波结构验证", "[ai_wavetable][ai-003]") {
+TEST_CASE("AI Wavetable: harmonic structure", "[ai_wavetable][ai-003]") {
     SECTION("锯齿波应有丰富谐波") {
         auto harmonics = AITextToWavetable::textToHarmonics("saw wave");
 
@@ -192,7 +192,7 @@ TEST_CASE("AI Wavetable: 谐波结构验证", "[ai_wavetable][ai-003]") {
 // =============================================================================
 // AI-004: AI波表 - 空文本回退到默认波形
 // =============================================================================
-TEST_CASE("AI Wavetable: 空文本回退到默认波形", "[ai_wavetable][ai-004]") {
+TEST_CASE("AI Wavetable: empty text fallback", "[ai_wavetable][ai-004]") {
     // 空文本应仍能生成有效波表 (基频默认1.0)
     auto result = AITextToWavetable::generate("");
 
@@ -210,7 +210,7 @@ TEST_CASE("AI Wavetable: 空文本回退到默认波形", "[ai_wavetable][ai-004
 // =============================================================================
 // AI-005: AI波表 - 关键词提取
 // =============================================================================
-TEST_CASE("AI Wavetable: 关键词提取", "[ai_wavetable][ai-005]") {
+TEST_CASE("AI Wavetable: keyword extraction", "[ai_wavetable][ai-005]") {
     SECTION("支持的关键词列表非空") {
         auto keywords = AITextToWavetable::getSupportedKeywords();
         REQUIRE(!keywords.empty());

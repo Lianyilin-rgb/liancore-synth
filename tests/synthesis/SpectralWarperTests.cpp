@@ -58,13 +58,13 @@ using namespace LianCore;
 // =============================================================================
 // 基础测试
 // =============================================================================
-TEST_CASE("SpectralWarper: 构造与默认值", "[spectralWarp][unit]") {
+TEST_CASE("SpectralWarper: construction and defaults", "[spectralWarp][unit]") {
     SpectralWarper warper;
     REQUIRE(warper.getMode() == SpectralWarper::Mode::Stretch);
     REQUIRE(warper.getAmount() == 0.0f);
 }
 
-TEST_CASE("SpectralWarper: 模式切换", "[spectralWarp][unit]") {
+TEST_CASE("SpectralWarper: mode switching", "[spectralWarp][unit]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Symmetrize);
     REQUIRE(warper.getMode() == SpectralWarper::Mode::Symmetrize);
@@ -74,7 +74,7 @@ TEST_CASE("SpectralWarper: 模式切换", "[spectralWarp][unit]") {
     REQUIRE(warper.getMode() == SpectralWarper::Mode::Fold);
 }
 
-TEST_CASE("SpectralWarper: Amount参数", "[spectralWarp][unit]") {
+TEST_CASE("SpectralWarper: Amount parameter", "[spectralWarp][unit]") {
     SpectralWarper warper;
     warper.setAmount(0.5f);
     REQUIRE(warper.getAmount() == 0.5f);
@@ -87,7 +87,7 @@ TEST_CASE("SpectralWarper: Amount参数", "[spectralWarp][unit]") {
     REQUIRE(warper.getAmount() == 1.0f);
 }
 
-TEST_CASE("SpectralWarper: 模式名称", "[spectralWarp][unit]") {
+TEST_CASE("SpectralWarper: mode names", "[spectralWarp][unit]") {
     // JUCE String内部使用UTF-8，但编译时字符串字面量编码取决于源文件编码
     REQUIRE(SpectralWarper::getModeName(0).isNotEmpty());
     REQUIRE(SpectralWarper::getModeName(1).isNotEmpty());
@@ -106,7 +106,7 @@ TEST_CASE("SpectralWarper: 模式名称", "[spectralWarp][unit]") {
 // =============================================================================
 // 注: stretch=2.0 意味着每个输出bin读取 1/2.0 的源bin索引
 // 即高频bin从低频bin读取数据 → 频谱能量向低频收缩
-TEST_CASE("SpectralWarper: 拉伸-频谱能量向低频收缩", "[spectralWarp][stretch]") {
+TEST_CASE("SpectralWarper: stretch - energy to low", "[spectralWarp][stretch]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Stretch);
 
@@ -134,7 +134,7 @@ TEST_CASE("SpectralWarper: 拉伸-频谱能量向低频收缩", "[spectralWarp][
     REQUIRE(newCentroid > origCentroid);
 }
 
-TEST_CASE("SpectralWarper: 压缩-频谱能量向高频扩展", "[spectralWarp][stretch]") {
+TEST_CASE("SpectralWarper: compress - energy to high", "[spectralWarp][stretch]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Stretch);
 
@@ -164,7 +164,7 @@ TEST_CASE("SpectralWarper: 压缩-频谱能量向高频扩展", "[spectralWarp][
 // =============================================================================
 // Symmetrize 测试
 // =============================================================================
-TEST_CASE("SpectralWarper: 对称化-完全对称", "[spectralWarp][symmetrize]") {
+TEST_CASE("SpectralWarper: symmetrize - full", "[spectralWarp][symmetrize]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Symmetrize);
     warper.setAmount(1.0f);
@@ -182,7 +182,7 @@ TEST_CASE("SpectralWarper: 对称化-完全对称", "[spectralWarp][symmetrize]"
     }
 }
 
-TEST_CASE("SpectralWarper: 对称化-部分对称", "[spectralWarp][symmetrize]") {
+TEST_CASE("SpectralWarper: symmetrize - partial", "[spectralWarp][symmetrize]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Symmetrize);
     warper.setAmount(0.5f);
@@ -210,7 +210,7 @@ TEST_CASE("SpectralWarper: 对称化-部分对称", "[spectralWarp][symmetrize]"
 // =============================================================================
 // Quantize 测试
 // =============================================================================
-TEST_CASE("SpectralWarper: 量化-2级硬限幅", "[spectralWarp][quantize]") {
+TEST_CASE("SpectralWarper: quantize - 2-level hard clip", "[spectralWarp][quantize]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Quantize);
     warper.setAmount(0.0f); // 2级
@@ -229,7 +229,7 @@ TEST_CASE("SpectralWarper: 量化-2级硬限幅", "[spectralWarp][quantize]") {
     REQUIRE_FALSE(hasNonBinary);
 }
 
-TEST_CASE("SpectralWarper: 量化-不同等级", "[spectralWarp][quantize]") {
+TEST_CASE("SpectralWarper: quantize - different levels", "[spectralWarp][quantize]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Quantize);
 
@@ -255,7 +255,7 @@ TEST_CASE("SpectralWarper: 量化-不同等级", "[spectralWarp][quantize]") {
 // =============================================================================
 // Fold 测试
 // =============================================================================
-TEST_CASE("SpectralWarper: 折叠-高频能量折叠到低频", "[spectralWarp][fold]") {
+TEST_CASE("SpectralWarper: fold - high to low", "[spectralWarp][fold]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Fold);
     warper.setAmount(0.5f); // 折叠频率约在奈奎斯特一半处
@@ -279,7 +279,7 @@ TEST_CASE("SpectralWarper: 折叠-高频能量折叠到低频", "[spectralWarp][
     REQUIRE(newLowEnergy > origLowEnergy);
 }
 
-TEST_CASE("SpectralWarper: 折叠-无折叠时不改变频谱", "[spectralWarp][fold]") {
+TEST_CASE("SpectralWarper: fold - no folding no change", "[spectralWarp][fold]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Fold);
     warper.setAmount(0.0f); // 无折叠
@@ -295,7 +295,7 @@ TEST_CASE("SpectralWarper: 折叠-无折叠时不改变频谱", "[spectralWarp][
     }
 }
 
-TEST_CASE("SpectralWarper: 折叠-极端折叠", "[spectralWarp][fold]") {
+TEST_CASE("SpectralWarper: fold - extreme", "[spectralWarp][fold]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Fold);
     warper.setAmount(1.0f); // 最大折叠
@@ -316,14 +316,14 @@ TEST_CASE("SpectralWarper: 折叠-极端折叠", "[spectralWarp][fold]") {
 // =============================================================================
 // 边界条件测试
 // =============================================================================
-TEST_CASE("SpectralWarper: 空频谱处理", "[spectralWarp][edge]") {
+TEST_CASE("SpectralWarper: empty spectrum", "[spectralWarp][edge]") {
     SpectralWarper warper;
     std::vector<float> empty;
     // 空输入不应崩溃
     REQUIRE_NOTHROW(warper.process(empty, 44100.0, 2048));
 }
 
-TEST_CASE("SpectralWarper: 全零频谱不变", "[spectralWarp][edge]") {
+TEST_CASE("SpectralWarper: all-zero unchanged", "[spectralWarp][edge]") {
     SpectralWarper warper;
     std::vector<float> zeroSpec(1025, 0.0f);
 
@@ -339,7 +339,7 @@ TEST_CASE("SpectralWarper: 全零频谱不变", "[spectralWarp][edge]") {
     }
 }
 
-TEST_CASE("SpectralWarper: Amount=0不产生效果", "[spectralWarp][edge]") {
+TEST_CASE("SpectralWarper: Amount=0 zero effect", "[spectralWarp][edge]") {
     SpectralWarper warper;
     auto spec = makeSawtoothSpectrum(1025);
     auto orig = spec;
@@ -360,7 +360,7 @@ TEST_CASE("SpectralWarper: Amount=0不产生效果", "[spectralWarp][edge]") {
 // =============================================================================
 // Shift 测试
 // =============================================================================
-TEST_CASE("SpectralWarper: 频移-升调", "[spectralWarp][shift]") {
+TEST_CASE("SpectralWarper: shift - pitch up", "[spectralWarp][shift]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Shift);
     warper.setAmount(0.75f); // maps to +12半音
@@ -382,7 +382,7 @@ TEST_CASE("SpectralWarper: 频移-升调", "[spectralWarp][shift]") {
     REQUIRE(lowEnergy < origLowEnergy);
 }
 
-TEST_CASE("SpectralWarper: 频移-降调", "[spectralWarp][shift]") {
+TEST_CASE("SpectralWarper: shift - pitch down", "[spectralWarp][shift]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Shift);
     warper.setAmount(0.25f); // maps to -12半音
@@ -409,7 +409,7 @@ TEST_CASE("SpectralWarper: 频移-降调", "[spectralWarp][shift]") {
 // =============================================================================
 // 综合测试
 // =============================================================================
-TEST_CASE("SpectralWarper: 5种模式全部可用", "[spectralWarp][integration]") {
+TEST_CASE("SpectralWarper: all 5 modes available", "[spectralWarp][integration]") {
     SpectralWarper warper;
     auto spec = makeSawtoothSpectrum(1025);
 
@@ -427,7 +427,7 @@ TEST_CASE("SpectralWarper: 5种模式全部可用", "[spectralWarp][integration]
     }
 }
 
-TEST_CASE("SpectralWarper: 不同FFT大小兼容", "[spectralWarp][integration]") {
+TEST_CASE("SpectralWarper: different FFT sizes", "[spectralWarp][integration]") {
     SpectralWarper warper;
     warper.setMode(SpectralWarper::Mode::Stretch);
     warper.setAmount(0.5f);

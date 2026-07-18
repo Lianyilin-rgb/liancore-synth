@@ -73,13 +73,13 @@ namespace {
 // =============================================================================
 // 基础测试
 // =============================================================================
-TEST_CASE("OversamplingProcessor: 默认禁用", "[oversampling][unit]") {
+TEST_CASE("OversamplingProcessor: default disabled", "[oversampling][unit]") {
     OversamplingProcessor proc;
     REQUIRE_FALSE(proc.isEnabled());
     REQUIRE(proc.getOversampledRate() == 176400.0);
 }
 
-TEST_CASE("OversamplingProcessor: 启用/禁用", "[oversampling][unit]") {
+TEST_CASE("OversamplingProcessor: enable/disable", "[oversampling][unit]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     REQUIRE(proc.isEnabled());
@@ -87,7 +87,7 @@ TEST_CASE("OversamplingProcessor: 启用/禁用", "[oversampling][unit]") {
     REQUIRE_FALSE(proc.isEnabled());
 }
 
-TEST_CASE("OversamplingProcessor: 准备与重置", "[oversampling][unit]") {
+TEST_CASE("OversamplingProcessor: prepare and reset", "[oversampling][unit]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     REQUIRE_NOTHROW(proc.prepare(44100.0, 512, 2));
@@ -97,7 +97,7 @@ TEST_CASE("OversamplingProcessor: 准备与重置", "[oversampling][unit]") {
 // =============================================================================
 // 过采样功能测试
 // =============================================================================
-TEST_CASE("OversamplingProcessor: 上采样输出样本数正确", "[oversampling][unit]") {
+TEST_CASE("OversamplingProcessor: upsample output count correct", "[oversampling][unit]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     proc.prepare(44100.0, 256, 2);
@@ -112,7 +112,7 @@ TEST_CASE("OversamplingProcessor: 上采样输出样本数正确", "[oversamplin
     REQUIRE(buffer.getNumSamples() == 1024);
 }
 
-TEST_CASE("OversamplingProcessor: 降采样后样本数恢复", "[oversampling][unit]") {
+TEST_CASE("OversamplingProcessor: downsample count restored", "[oversampling][unit]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     proc.prepare(44100.0, 256, 2);
@@ -127,7 +127,7 @@ TEST_CASE("OversamplingProcessor: 降采样后样本数恢复", "[oversampling][
     REQUIRE(buffer.getNumSamples() == 256);
 }
 
-TEST_CASE("OversamplingProcessor: 禁用时不处理", "[oversampling][unit]") {
+TEST_CASE("OversamplingProcessor: no processing when disabled", "[oversampling][unit]") {
     OversamplingProcessor proc;
     proc.prepare(44100.0, 256, 2);
 
@@ -143,7 +143,7 @@ TEST_CASE("OversamplingProcessor: 禁用时不处理", "[oversampling][unit]") {
 // =============================================================================
 // 信号质量测试
 // =============================================================================
-TEST_CASE("OversamplingProcessor: 1kHz正弦波过采样保真度", "[oversampling][quality]") {
+TEST_CASE("OversamplingProcessor: 1kHz sine fidelity", "[oversampling][quality]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     proc.prepare(44100.0, 512, 1);
@@ -163,7 +163,7 @@ TEST_CASE("OversamplingProcessor: 1kHz正弦波过采样保真度", "[oversampli
     REQUIRE(std::abs(finalRMS - origRMS) / origRMS < 0.05f);
 }
 
-TEST_CASE("OversamplingProcessor: 高频正弦波过采样后信号保留", "[oversampling][quality]") {
+TEST_CASE("OversamplingProcessor: high freq signal preserved", "[oversampling][quality]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     proc.prepare(44100.0, 512, 1);
@@ -187,7 +187,7 @@ TEST_CASE("OversamplingProcessor: 高频正弦波过采样后信号保留", "[ov
     REQUIRE(finalRMS < origRMS * 3.0f);
 }
 
-TEST_CASE("OversamplingProcessor: 10kHz正弦波无显著失真", "[oversampling][quality]") {
+TEST_CASE("OversamplingProcessor: 10kHz sine low distortion", "[oversampling][quality]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     proc.prepare(44100.0, 1024, 1);
@@ -215,7 +215,7 @@ TEST_CASE("OversamplingProcessor: 10kHz正弦波无显著失真", "[oversampling
 // =============================================================================
 // 边界测试
 // =============================================================================
-TEST_CASE("OversamplingProcessor: 单声道", "[oversampling][edge]") {
+TEST_CASE("OversamplingProcessor: mono channel", "[oversampling][edge]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     proc.prepare(44100.0, 256, 1);
@@ -230,7 +230,7 @@ TEST_CASE("OversamplingProcessor: 单声道", "[oversampling][edge]") {
     REQUIRE(buffer.getNumSamples() == 256);
 }
 
-TEST_CASE("OversamplingProcessor: 不同采样率", "[oversampling][edge]") {
+TEST_CASE("OversamplingProcessor: different sample rates", "[oversampling][edge]") {
     std::vector<double> rates = {44100.0, 48000.0, 88200.0, 96000.0};
     for (double rate : rates) {
         OversamplingProcessor proc;
@@ -240,7 +240,7 @@ TEST_CASE("OversamplingProcessor: 不同采样率", "[oversampling][edge]") {
     }
 }
 
-TEST_CASE("OversamplingProcessor: 不同块大小", "[oversampling][edge]") {
+TEST_CASE("OversamplingProcessor: different block sizes", "[oversampling][edge]") {
     std::vector<int> blockSizes = {64, 128, 256, 512, 1024};
     for (int bs : blockSizes) {
         OversamplingProcessor proc;
@@ -258,7 +258,7 @@ TEST_CASE("OversamplingProcessor: 不同块大小", "[oversampling][edge]") {
     }
 }
 
-TEST_CASE("OversamplingProcessor: 静音输入不变", "[oversampling][edge]") {
+TEST_CASE("OversamplingProcessor: silent input unchanged", "[oversampling][edge]") {
     OversamplingProcessor proc;
     proc.setEnabled(true);
     proc.prepare(44100.0, 256, 2);

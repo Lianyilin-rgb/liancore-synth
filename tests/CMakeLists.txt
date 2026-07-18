@@ -22,7 +22,7 @@ list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_audio_node\\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_modulation\\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*test_wavetable\\.cpp$")
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*ParameterTreeTests\\.cpp$")
-# 排除 MPE/微音程测试 (P0-2/P0-3 尚未实现, 测试引用已移除的 API)
+# 排除 MPE/微音程测试 (依赖 PluginProcessor GUI 模块, 测试构建不含 GUI)
 list(FILTER TEST_SOURCES EXCLUDE REGEX ".*MPEAndMicrotuningTests\\.cpp$")
 # P7-2: ONNX测试已恢复 - 以下排除已移除
 # list(FILTER TEST_SOURCES EXCLUDE REGEX ".*WavetableGeneratorTests\\.cpp$")
@@ -34,7 +34,6 @@ list(FILTER TEST_SOURCES EXCLUDE REGEX ".*MPEAndMicrotuningTests\\.cpp$")
 
 # 创建测试可执行文件
 # 注意: PluginProcessor.cpp 依赖大量 JUCE GUI 模块, 测试单独编译不经济
-# 当 MPE/微音程实现后, 再添加 PluginProcessor 依赖
 add_executable(LianCoreTests
     ${TEST_SOURCES}
 

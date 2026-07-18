@@ -81,7 +81,7 @@ static std::unique_ptr<PresetManager> createTestManager(bool withData = true) {
 // =============================================================================
 // PM-001: 基本CRUD操作
 // =============================================================================
-TEST_CASE("Preset Manager: 基本CRUD操作", "[preset_manager][pm-001]") {
+TEST_CASE("Preset Manager: basic CRUD operations", "[preset_manager][pm-001]") {
     auto mgr = createTestManager(false);
     REQUIRE(mgr->isDatabaseOpen()); // P7修复: 验证数据库连接
 
@@ -175,7 +175,7 @@ TEST_CASE("Preset Manager: 基本CRUD操作", "[preset_manager][pm-001]") {
 // P7修复: 根因是 exportPresetFolder 中栈分配 DynamicObject 被 juce::var 误当作
 // 堆分配引用计数对象，触发 0xC0000374 堆损坏。已修复为堆分配 juce::var。
 // =============================================================================
-TEST_CASE("Preset Manager: 批量导入/导出", "[preset_manager][pm-002]") {
+TEST_CASE("Preset Manager: batch import/export", "[preset_manager][pm-002]") {
     auto mgr = createTestManager(true);
     REQUIRE(mgr->isDatabaseOpen()); // P7修复: 验证数据库连接
 
@@ -246,7 +246,7 @@ TEST_CASE("Preset Manager: 批量导入/导出", "[preset_manager][pm-002]") {
 // =============================================================================
 // PM-003: 标签自动建议
 // =============================================================================
-TEST_CASE("Preset Manager: 标签自动建议", "[preset_manager][pm-003]") {
+TEST_CASE("Preset Manager: tag auto-suggest", "[preset_manager][pm-003]") {
     auto mgr = createTestManager(false);
 
     SECTION("Bass分类建议标签") {
@@ -324,7 +324,7 @@ TEST_CASE("Preset Manager: 标签自动建议", "[preset_manager][pm-003]") {
 // =============================================================================
 // PM-004: 模糊搜索
 // =============================================================================
-TEST_CASE("Preset Manager: 模糊搜索", "[preset_manager][pm-004]") {
+TEST_CASE("Preset Manager: fuzzy search", "[preset_manager][pm-004]") {
     auto mgr = createTestManager(true);
 
     SECTION("精确匹配") {
@@ -399,7 +399,7 @@ TEST_CASE("Preset Manager: 模糊搜索", "[preset_manager][pm-004]") {
 // =============================================================================
 // PM-005: getAllTags
 // =============================================================================
-TEST_CASE("Preset Manager: 获取所有标签", "[preset_manager][pm-005]") {
+TEST_CASE("Preset Manager: get all tags", "[preset_manager][pm-005]") {
     auto mgr = createTestManager(true);
 
     auto tags = mgr->getAllTags();
@@ -420,7 +420,7 @@ TEST_CASE("Preset Manager: 获取所有标签", "[preset_manager][pm-005]") {
 // =============================================================================
 // PM-006: 版本历史
 // =============================================================================
-TEST_CASE("Preset Manager: 版本历史", "[preset_manager][pm-006]") {
+TEST_CASE("Preset Manager: version history", "[preset_manager][pm-006]") {
     auto mgr = createTestManager(false);
 
     SECTION("保存版本历史") {

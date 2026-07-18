@@ -62,7 +62,7 @@ static juce::AudioBuffer<float> generateWhiteNoise(int numSamples) {
 // =============================================================================
 // TM-001: 标准波形参数范围测试
 // =============================================================================
-TEST_CASE("Timbre Match: 标准波形输入参数范围", "[timbre_match][tm-001]") {
+TEST_CASE("Timbre Match: standard waveform param range", "[timbre_match][tm-001]") {
     AudioTimbreAnalyzer analyzer;
     const double sampleRate = 44100.0;
     const int numSamples = 16384;
@@ -125,7 +125,7 @@ TEST_CASE("Timbre Match: 标准波形输入参数范围", "[timbre_match][tm-001
 // =============================================================================
 // TM-002: 参数范围验证
 // =============================================================================
-TEST_CASE("Timbre Match: 所有参数在[0,1]范围内", "[timbre_match][tm-002]") {
+TEST_CASE("Timbre Match: all params in [0,1] range", "[timbre_match][tm-002]") {
     AudioTimbreAnalyzer analyzer;
     const double sampleRate = 44100.0;
 
@@ -169,7 +169,7 @@ TEST_CASE("Timbre Match: 所有参数在[0,1]范围内", "[timbre_match][tm-002]
 // =============================================================================
 // TM-003: RMS特征验证
 // =============================================================================
-TEST_CASE("Timbre Match: RMS特征映射到Sustain", "[timbre_match][tm-003]") {
+TEST_CASE("Timbre Match: RMS maps to Sustain", "[timbre_match][tm-003]") {
     AudioTimbreAnalyzer analyzer;
     const double sampleRate = 44100.0;
     const int numSamples = 16384;
@@ -206,7 +206,7 @@ TEST_CASE("Timbre Match: RMS特征映射到Sustain", "[timbre_match][tm-003]") {
 // =============================================================================
 // TM-004: 空缓冲区错误处理
 // =============================================================================
-TEST_CASE("Timbre Match: 空缓冲区错误处理", "[timbre_match][tm-004]") {
+TEST_CASE("Timbre Match: empty buffer error handling", "[timbre_match][tm-004]") {
     AudioTimbreAnalyzer analyzer;
 
     SECTION("零样本缓冲区") {
@@ -220,7 +220,7 @@ TEST_CASE("Timbre Match: 空缓冲区错误处理", "[timbre_match][tm-004]") {
 // =============================================================================
 // TM-005: 参数名称和描述
 // =============================================================================
-TEST_CASE("Timbre Match: 参数名称和描述", "[timbre_match][tm-005]") {
+TEST_CASE("Timbre Match: param names and descriptions", "[timbre_match][tm-005]") {
     SECTION("11个参数都有名称") {
         for (int i = 0; i < 11; ++i) {
             auto name = AudioTimbreAnalyzer::getParamName(i);
@@ -248,7 +248,7 @@ TEST_CASE("Timbre Match: 参数名称和描述", "[timbre_match][tm-005]") {
 // =============================================================================
 // TM-006: 不同频率的影响
 // =============================================================================
-TEST_CASE("Timbre Match: 不同基频的频谱质心影响", "[timbre_match][tm-006]") {
+TEST_CASE("Timbre Match: diff fundamental spectral centroid", "[timbre_match][tm-006]") {
     AudioTimbreAnalyzer analyzer;
     const double sampleRate = 44100.0;
     const int numSamples = 16384;
