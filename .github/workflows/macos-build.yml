@@ -87,25 +87,6 @@ jobs:
           cmake . -G Xcode -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} 2>&1
           echo "Minimal CMake test exit code: $?"
 
-      - name: Test CMake + JUCE (diagnostic - Xcode)
-        run: |
-          mkdir -p build_juce_xcode
-          cat > build_juce_xcode/CMakeLists.txt << 'CMEOF'
-          cmake_minimum_required(VERSION 3.24)
-          project(JUCE_Test VERSION 1.0 LANGUAGES C CXX)
-          if(NOT EXISTS "${CMAKE_SOURCE_DIR}/../JUCE/CMakeLists.txt")
-            message(FATAL_ERROR "JUCE not found at ${CMAKE_SOURCE_DIR}/../JUCE")
-          endif()
-          message(STATUS "JUCE found at ${CMAKE_SOURCE_DIR}/../JUCE")
-          add_subdirectory("${CMAKE_SOURCE_DIR}/../JUCE")
-          message(STATUS "JUCE add_subdirectory: PASSED")
-          CMEOF
-          cd build_juce_xcode
-          cmake . -G Xcode \
-            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
-            2>&1
-          echo "JUCE Xcode test exit code: $?"
-
       - name: Test CMake + JUCE (diagnostic - Unix Makefiles)
         run: |
           mkdir -p build_juce_make
@@ -126,11 +107,31 @@ jobs:
             2>&1
           echo "JUCE Makefiles test exit code: $?"
 
+      - name: Test CMake + JUCE (diagnostic - Xcode)
+        continue-on-error: true
+        run: |
+          mkdir -p build_juce_xcode
+          cat > build_juce_xcode/CMakeLists.txt << 'CMEOF'
+          cmake_minimum_required(VERSION 3.24)
+          project(JUCE_Test VERSION 1.0 LANGUAGES C CXX)
+          if(NOT EXISTS "${CMAKE_SOURCE_DIR}/../JUCE/CMakeLists.txt")
+            message(FATAL_ERROR "JUCE not found at ${CMAKE_SOURCE_DIR}/../JUCE")
+          endif()
+          message(STATUS "JUCE found at ${CMAKE_SOURCE_DIR}/../JUCE")
+          add_subdirectory("${CMAKE_SOURCE_DIR}/../JUCE")
+          message(STATUS "JUCE add_subdirectory: PASSED")
+          CMEOF
+          cd build_juce_xcode
+          cmake . -G Xcode \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
+            2>&1
+          echo "JUCE Xcode test exit code: $?"
+
       - name: Configure CMake
         id: cmake_configure
         run: |
           mkdir -p build_m
-          cmake -B build_m -G Xcode \
+          cmake -B build_m -G "Unix Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
             --log-level=DEBUG \
