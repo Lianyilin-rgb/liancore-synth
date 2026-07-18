@@ -161,8 +161,20 @@ jobs:
         run: |
           echo "=== 打包 DMG ==="
           mkdir -p dmg_staging
-          cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
-          cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
+          # 复制 VST3
+          if [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ]; then
+            cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
+            echo "VST3 copied"
+          else
+            echo "VST3 not found, skipping"
+          fi
+          # 复制 AU (如果存在)
+          if [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ]; then
+            cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
+            echo "AU copied"
+          else
+            echo "AU not found, skipping"
+          fi
           echo "=== DMG 内容 ==="
           ls -laR dmg_staging/
           echo "=== 创建 DMG ==="
