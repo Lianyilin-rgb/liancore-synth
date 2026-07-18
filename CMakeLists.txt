@@ -435,8 +435,12 @@ if(APPLE)
     )
 
     # 添加插件包装器需要的头文件搜索路径
+    # AU 包装器需要 AU/AudioUnitSDK 路径 (include 为 "AudioUnitSDK/xxx.h")
+    # VST3 包装器需要 VST3 路径
     target_include_directories(LianCore PRIVATE
         ${JUCE_PLUGIN_CLIENT_DIR}
+        ${JUCE_PLUGIN_CLIENT_DIR}/AU
+        ${JUCE_PLUGIN_CLIENT_DIR}/VST3
     )
 
     message(STATUS "  [LianCore] Added VST3/AU wrapper sources + compile definitions for macOS plugin bundle")
