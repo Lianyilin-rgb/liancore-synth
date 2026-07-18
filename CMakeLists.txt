@@ -22,7 +22,7 @@ if(MSVC)
     add_compile_options(/W4 /MP /arch:AVX2 /fp:fast /utf-8)
     add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN)
 elseif(APPLE)
-    add_compile_options(-Wall -Wextra -Wpedantic -march=native -ffast-math)
+    add_compile_options(-Wall -Wextra -Wpedantic -ffast-math)
     # JUCE 内部使用 juce::String 通过可变参数函数，clang 会报 non-pod-varargs 警告
     add_compile_options(-Wno-error=non-pod-varargs)
 else()
