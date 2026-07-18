@@ -34,17 +34,29 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.3'
+          xcode-version: 'latest-stable'
 
       - name: Install CMake
         run: brew install cmake
+
+      - name: System Diagnostics
+        run: |
+          echo "=== System Info ==="
+          uname -a
+          echo "=== Xcode Version ==="
+          xcodebuild -version || echo "xcodebuild not available"
+          echo "=== CMake Version ==="
+          cmake --version
+          echo "=== Working Directory ==="
+          pwd
+          ls -la
 
       - name: Cache JUCE
         id: cache-juce
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v2
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -60,9 +72,8 @@ jobs:
           echo "=== JUCE directory contents ==="
           ls -la JUCE/ || echo "JUCE/ not found"
           ls -la JUCE/CMakeLists.txt || echo "JUCE/CMakeLists.txt not found"
-          echo "=== CMakeLists.txt JUCE paths ==="
-          echo "Expected: $(pwd)/juce-8.0.14-osx/JUCE"
-          echo "Fallback: $(pwd)/JUCE"
+          echo "=== JUCE modules ==="
+          ls JUCE/modules/ 2>/dev/null || echo "JUCE/modules/ not found"
 
       - name: Configure CMake
         id: cmake_configure
@@ -71,33 +82,54 @@ jobs:
           cmake -B build_m -G Xcode \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
-            2>&1 | tee build_m/cmake_configure.log
-          echo "CMake exit code: ${PIPESTATUS[0]}" | tee -a build_m/cmake_configure.log
-          exit ${PIPESTATUS[0]}
+            --log-level=DEBUG \
+            > build_m/cmake_configure.log 2>&1
+          CMAKE_EXIT=$?
+          echo "CMake exit code: $CMAKE_EXIT" | tee -a build_m/cmake_configure.log
+          exit $CMAKE_EXIT
         continue-on-error: true
 
       - name: Show CMake configure log (on failure)
         if: steps.cmake_configure.outcome == 'failure'
         run: |
-          echo "## CMake Configure Failed" >> $GITHUB_STEP_SUMMARY
+          echo "## CMake Configure Failed (last 300 lines)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat build_m/cmake_configure.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no log file)" >> $GITHUB_STEP_SUMMARY
+          tail -300 build_m/cmake_configure.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no log file)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## CMakeError.log" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat build_m/CMakeFiles/CMakeError.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no CMakeError.log)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## CMakeOutput.log (last 100 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -100 build_m/CMakeFiles/CMakeOutput.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no CMakeOutput.log)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: CMake trace (on failure, for diagnostics)
+        if: steps.cmake_configure.outcome == 'failure'
+        run: |
+          echo "## CMake --trace-expand (first 500 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cmake -B build_m -G Xcode \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
+            --trace-expand \
+            2>&1 | head -500 >> $GITHUB_STEP_SUMMARY || echo "(trace failed)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
 
       - name: Upload CMake diagnose log
         if: steps.cmake_configure.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: cmake-diagnose-${{ matrix.name }}
+          name: cmake-diagnose-${{ matrix.arch }}
           path: |
             build_m/cmake_configure.log
             build_m/CMakeFiles/CMakeError.log
             build_m/CMakeFiles/CMakeOutput.log
+          if-no-files-found: warn
 
       - name: Fail if CMake configure failed
         if: steps.cmake_configure.outcome == 'failure'
