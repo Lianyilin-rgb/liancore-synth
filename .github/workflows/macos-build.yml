@@ -36,8 +36,11 @@ jobs:
         with:
           xcode-version: 'latest-stable'
 
-      - name: Install CMake
-        run: brew install cmake
+      - name: Install CMake 3.28.6
+        run: |
+          curl -L -o cmake.tar.gz "https://github.com/Kitware/CMake/releases/download/v3.28.6/cmake-3.28.6-macos-universal.tar.gz"
+          tar xzf cmake.tar.gz
+          echo "$(pwd)/cmake-3.28.6-macos-universal/CMake.app/Contents/bin" >> $GITHUB_PATH
 
       - name: System Diagnostics
         run: |
