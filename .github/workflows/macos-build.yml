@@ -55,18 +55,13 @@ jobs:
           echo "=== Compilers ==="
           cc --version 2>&1
           c++ --version 2>&1
-          echo "=== xcode-select ==="
-          xcode-select -p 2>&1
-          echo "=== Working Directory ==="
-          pwd
-          ls -la
 
       - name: Cache JUCE
         id: cache-juce
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v12
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v13
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -75,102 +70,99 @@ jobs:
             "https://github.com/juce-framework/JUCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
           unzip -q juce-8.0.14-osx.zip
           rm juce-8.0.14-osx.zip
-          echo "JUCE installed at $(pwd)/JUCE"
+          echo "JUCE installed"
           ls -la JUCE/
-          ls -la JUCE/modules/ | head -20
-          ls -la JUCE/cmake/ | head -20
 
-      - name: Verify JUCE Installation
-        run: |
-          echo "=== JUCE Directory ==="
-          ls -la JUCE/ 2>&1 || echo "JUCE/ not found!"
-          echo "=== JUCE CMake ==="
-          ls -la JUCE/cmake/ 2>&1 || echo "JUCE/cmake/ not found!"
-          echo "=== JUCE Modules ==="
-          ls -la JUCE/modules/ 2>&1 || echo "JUCE/modules/ not found!"
-          echo "=== Plugin Client ==="
-          ls -la JUCE/modules/juce_audio_plugin_client/ 2>&1 || echo "juce_audio_plugin_client not found!"
-          echo "=== JUCE CMakeLists ==="
-          if [ -f "JUCE/CMakeLists.txt" ]; then
-            head -20 JUCE/CMakeLists.txt
-          else
-            echo "JUCE/CMakeLists.txt not found!"
-          fi
-
-      - name: Configure CMake (Unix Makefiles)
+      - name: Configure CMake
         id: cmake_configure
         run: |
           mkdir -p build
           cmake -B build -G "Unix Makefiles" \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_VERBOSE_MAKEFILE=ON \
             2>&1 | tee build/cmake_configure.log
           CMAKE_EXIT=${PIPESTATUS[0]}
-          echo "CMake exit code: $CMAKE_EXIT"
           if [ "$CMAKE_EXIT" != "0" ]; then
-            echo "=== CMake errors ==="
-            grep -i 'error\|fatal' build/cmake_configure.log | head -30 | while read line; do
+            grep -i 'error\|fatal' build/cmake_configure.log | head -20 | while read line; do
               echo "::error file=CMakeLists.txt::${line}"
             done
             exit $CMAKE_EXIT
           fi
-          echo "=== CMake configure succeeded ==="
-          echo "=== JuceLibraryCode check ==="
-          if [ -d "build/JuceLibraryCode" ]; then
-            echo "JuceLibraryCode directory exists"
-            ls -la build/JuceLibraryCode/
-          else
-            echo "::warning::build/JuceLibraryCode/ not found"
-            find build -name "JuceLibraryCode" -type d 2>/dev/null | head -5
-          fi
+          echo "CMake configure succeeded"
+          
+          echo "=== Available targets ==="
+          cmake --build build --target help 2>&1 | head -40
+          
+          echo "=== JucePluginDefines.h ==="
           if [ -f "build/JuceLibraryCode/JucePluginDefines.h" ]; then
-            echo "JucePluginDefines.h found:"
-            cat build/JuceLibraryCode/JucePluginDefines.h
+            echo "JucePluginDefines.h found"
+            head -20 build/JuceLibraryCode/JucePluginDefines.h
           else
-            echo "::warning::JucePluginDefines.h not found at build/JuceLibraryCode/"
+            echo "JucePluginDefines.h NOT found"
             find build -name "JucePluginDefines.h" -type f 2>/dev/null | head -5
           fi
-          echo "=== CMake targets ==="
-          cmake --build build --target help 2>&1 | head -30
 
-      - name: Build LianCore Static Library
+      - name: Build LianCore (compile all objects)
         id: build_static
         run: |
-          echo "=== Building LianCore static library ==="
+          echo "=== Building LianCore target ==="
           cmake --build build --target LianCore --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_liancore.log
           BUILD_EXIT=${PIPESTATUS[0]}
-          echo "LianCore build exit code: $BUILD_EXIT"
+          echo "Build exit code: $BUILD_EXIT"
           if [ "$BUILD_EXIT" != "0" ]; then
-            echo "=== Build errors (last 50 lines) ==="
             tail -50 build/build_liancore.log
             grep -i 'error:' build/build_liancore.log | head -20 | while read line; do
-              echo "::error file=src/plugin/PluginProcessor.cpp::${line}"
+              echo "::error::${line}"
             done
             exit $BUILD_EXIT
           fi
           echo "LianCore build completed"
 
-      - name: Find Static Library
-        id: find_static
+      - name: Create Static Library from Objects
+        id: create_static
         run: |
-          echo "=== Searching for static library ==="
+          echo "=== Searching for libLianCore.a ==="
           STATIC_LIB=$(find build -name "libLianCore.a" -type f 2>/dev/null | head -1)
+          
           if [ -n "$STATIC_LIB" ]; then
-            echo "Static lib found: $STATIC_LIB ($(ls -la $STATIC_LIB | awk '{print $5}') bytes)"
-            file "$STATIC_LIB" 2>/dev/null || echo "file command not available"
+            echo "libLianCore.a found: $STATIC_LIB ($(ls -la $STATIC_LIB | awk '{print $5}') bytes)"
             echo "STATIC_LIB=$STATIC_LIB" >> $GITHUB_ENV
           else
-            echo "::warning::libLianCore.a not found by name"
+            echo "libLianCore.a NOT found, searching for .o files..."
             echo "=== All .a files ==="
             find build -name "*.a" -type f 2>/dev/null
-            echo "=== All .o files (first 30) ==="
-            find build -name "*.o" -type f 2>/dev/null | head -30
+            echo "=== All .o files ==="
+            find build -name "*.o" -type f 2>/dev/null | head -50
             echo "=== libLianCore* files ==="
             find build -name "libLianCore*" -type f 2>/dev/null
-            echo "=== Build directory structure ==="
-            find build -maxdepth 3 -type d 2>/dev/null | sort | head -30
+            
+            # Collect all .o files and create libLianCore.a
+            OBJ_COUNT=$(find build -name "*.o" -type f 2>/dev/null | wc -l)
+            echo "Found $OBJ_COUNT object files"
+            
+            if [ "$OBJ_COUNT" -gt 0 ]; then
+              echo "Creating libLianCore.a from object files..."
+              find build -name "*.o" -type f 2>/dev/null | xargs ar rcs build/libLianCore.a
+              echo "Static library created: $(ls -la build/libLianCore.a)"
+              file build/libLianCore.a 2>/dev/null
+              echo "STATIC_LIB=build/libLianCore.a" >> $GITHUB_ENV
+            else
+              echo "WARNING: No object files found! Cannot create static library."
+              echo "=== Build directory structure ==="
+              find build -maxdepth 3 -type d 2>/dev/null | sort | head -30
+            fi
           fi
+
+      - name: Find JucePluginDefines.h
+        id: find_defines
+        run: |
+          JUCE_DEFINES_H=$(find build -name "JucePluginDefines.h" -type f 2>/dev/null | head -1)
+          if [ -z "$JUCE_DEFINES_H" ]; then
+            echo "::error::JucePluginDefines.h not found!"
+            exit 1
+          fi
+          echo "JucePluginDefines.h: $JUCE_DEFINES_H"
+          echo "JUCE_DEFINES_DIR=$(dirname $JUCE_DEFINES_H)" >> $GITHUB_ENV
 
       - name: Create Plugin Bundles
         if: env.STATIC_LIB != ''
@@ -178,8 +170,11 @@ jobs:
           set -e
 
           STATIC_LIB="${{ env.STATIC_LIB }}"
-          echo "Using static library: $STATIC_LIB"
+          JUCE_DEFINES_DIR="${{ env.JUCE_DEFINES_DIR }}"
+          
+          echo "Static library: $STATIC_LIB"
           ls -la "$STATIC_LIB"
+          echo "JUCE defines dir: $JUCE_DEFINES_DIR"
 
           SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || echo "")
           SDK_FLAG=""
@@ -191,21 +186,7 @@ jobs:
           ARCH_FLAG="-arch ${{ matrix.cmake_arch }}"
           echo "Target arch: ${{ matrix.cmake_arch }}"
 
-          # Find JucePluginDefines.h
-          JUCE_DEFINES_H=$(find build -name "JucePluginDefines.h" -type f 2>/dev/null | head -1)
-          if [ -z "$JUCE_DEFINES_H" ]; then
-            echo "::error::JucePluginDefines.h not found!"
-            exit 1
-          fi
-          JUCE_DEFINES_DIR=$(dirname "$JUCE_DEFINES_H")
-          echo "JucePluginDefines.h at: $JUCE_DEFINES_H"
-          echo "Include dir: $JUCE_DEFINES_DIR"
-
           JUCE_MODULES="JUCE/modules"
-          if [ ! -d "$JUCE_MODULES" ]; then
-            echo "::error::JUCE modules not found at $JUCE_MODULES"
-            exit 1
-          fi
           INCLUDE_FLAGS="-I$JUCE_MODULES -I$JUCE_DEFINES_DIR -Isrc"
           echo "Include flags: $INCLUDE_FLAGS"
 
@@ -228,27 +209,24 @@ jobs:
             c++ -c -std=c++17 $SDK_FLAG $ARCH_FLAG $INCLUDE_FLAGS \
               -o build/vst3_client.o "$VST3_SRC" 2>&1 | tee build/vst3_compile.log
             if [ ${PIPESTATUS[0]} != "0" ]; then
-              echo "::error::VST3 .cpp wrapper compilation failed"
+              echo "::error::VST3 .cpp compilation failed"
               tail -30 build/vst3_compile.log
               exit 1
             fi
             VST3_OBJ_FILES="build/vst3_client.o"
-            echo "VST3 .cpp compiled OK"
           fi
 
           if [ -f "$VST3_MM" ]; then
             c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $ARCH_FLAG $INCLUDE_FLAGS \
               -o build/vst3_mm.o "$VST3_MM" 2>&1 | tee build/vst3_mm_compile.log
             if [ ${PIPESTATUS[0]} != "0" ]; then
-              echo "::error::VST3 .mm wrapper compilation failed"
+              echo "::error::VST3 .mm compilation failed"
               tail -30 build/vst3_mm_compile.log
               exit 1
             fi
             VST3_OBJ_FILES="$VST3_OBJ_FILES build/vst3_mm.o"
-            echo "VST3 .mm compiled OK"
           fi
-
-          echo "VST3 object files: $VST3_OBJ_FILES"
+          echo "VST3 objects: $VST3_OBJ_FILES"
 
           # Compile AU wrapper
           echo "=== Compiling AU wrapper ==="
@@ -260,27 +238,24 @@ jobs:
             c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $ARCH_FLAG $INCLUDE_FLAGS \
               -o build/au_1.o "$AU_1" 2>&1 | tee build/au_1_compile.log
             if [ ${PIPESTATUS[0]} != "0" ]; then
-              echo "::error::AU_1 wrapper compilation failed"
+              echo "::error::AU_1 compilation failed"
               tail -30 build/au_1_compile.log
               exit 1
             fi
             AU_OBJ_FILES="build/au_1.o"
-            echo "AU_1 compiled OK"
           fi
 
           if [ -f "$AU_2" ]; then
             c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $ARCH_FLAG $INCLUDE_FLAGS \
               -o build/au_2.o "$AU_2" 2>&1 | tee build/au_2_compile.log
             if [ ${PIPESTATUS[0]} != "0" ]; then
-              echo "::error::AU_2 wrapper compilation failed"
+              echo "::error::AU_2 compilation failed"
               tail -30 build/au_2_compile.log
               exit 1
             fi
             AU_OBJ_FILES="$AU_OBJ_FILES build/au_2.o"
-            echo "AU_2 compiled OK"
           fi
-
-          echo "AU object files: $AU_OBJ_FILES"
+          echo "AU objects: $AU_OBJ_FILES"
 
           # Create VST3 Bundle
           echo "=== Creating VST3 Bundle ==="
@@ -319,9 +294,7 @@ jobs:
             tail -30 build/vst3_link.log
             exit $LINK_EXIT
           fi
-          
-          echo "VST3 binary info:"
-          ls -la "$VST3_DIR/Contents/MacOS/LianCore"
+          echo "VST3 binary: $(ls -la $VST3_DIR/Contents/MacOS/LianCore)"
           file "$VST3_DIR/Contents/MacOS/LianCore"
 
           # Create AU Bundle
@@ -374,19 +347,13 @@ jobs:
               tail -30 build/au_link.log
               exit $LINK_EXIT
             fi
-
-            echo "AU binary info:"
-            ls -la "$AU_DIR/Contents/MacOS/LianCore"
+            echo "AU binary: $(ls -la $AU_DIR/Contents/MacOS/LianCore)"
             file "$AU_DIR/Contents/MacOS/LianCore"
           fi
 
           echo "=== Bundle Verification ==="
-          echo "VST3 bundle:"
           find "$VST3_DIR" -type f | sort
-          if [ -n "$AU_OBJ_FILES" ]; then
-            echo "AU bundle:"
-            find "$AU_DIR" -type f | sort
-          fi
+          [ -n "$AU_OBJ_FILES" ] && find "$AU_DIR" -type f | sort
 
       - name: Build Tests
         run: |
@@ -394,9 +361,7 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          echo "=== Running tests ==="
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            echo "Running x86_64 tests under Rosetta 2"
             arch -x86_64 ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
           else
             ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
@@ -426,37 +391,29 @@ jobs:
           HAS_BINARIES=false
 
           if [ -f "$VST3_BIN" ]; then
-            echo "VST3 binary found: $(ls -la $VST3_BIN)"
+            echo "VST3 binary: $(ls -la $VST3_BIN)"
             HAS_BINARIES=true
-          else
-            echo "::warning::VST3 binary not found at $VST3_BIN"
           fi
-
           if [ -f "$AU_BIN" ]; then
-            echo "AU binary found: $(ls -la $AU_BIN)"
+            echo "AU binary: $(ls -la $AU_BIN)"
             HAS_BINARIES=true
-          else
-            echo "::warning::AU binary not found at $AU_BIN"
           fi
 
           if [ "$HAS_BINARIES" = "false" ]; then
             echo "::error::No plugin binaries found! DMG will be empty."
-            find build/LianCore_artefacts -type f 2>/dev/null | head -50
             exit 1
           fi
 
           mkdir -p dmg_staging
-          [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ] && cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
-          [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ] && cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
-          ls -laR dmg_staging/
+          [ -d "$VST3_DIR" ] && cp -R "$VST3_DIR" dmg_staging/
+          [ -d "$AU_DIR" ] && cp -R "$AU_DIR" dmg_staging/
           hdiutil create -volname "LianCore V3" -srcfolder dmg_staging -ov -format UDZO LianCoreV3-macOS.dmg
           ls -la LianCoreV3-macOS.dmg
           DMG_SIZE=$(stat -f%z LianCoreV3-macOS.dmg 2>/dev/null || echo "0")
           echo "DMG size: $DMG_SIZE bytes"
           if [ "$DMG_SIZE" -lt 10000000 ]; then
-            echo "::warning::DMG is smaller than 10MB, may be incomplete"
+            echo "::warning::DMG < 10MB, may be incomplete"
           fi
-          echo "DMG created successfully"
 
       - name: Upload DMG Artifact
         if: matrix.arch == 'arm64'
