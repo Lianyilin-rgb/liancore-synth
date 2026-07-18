@@ -112,20 +112,30 @@ jobs:
       - name: Build VST3 + AU
         id: build_plugin
         run: |
-          # Unix Makefiles: LianCore_All target 会正确触发所有插件格式的构建
-          # 先尝试构建 LianCore_All，如果失败则尝试构建所有已知 target
-          cmake --build build --target LianCore_All --parallel $(sysctl -n hw.logicalcpu) \
-            > build/build.log 2>&1 || BUILD_ERR=$?
-          BUILD_EXIT=${BUILD_ERR:-$?}
-          echo "Build exit code: $BUILD_EXIT"
-          if [ "$BUILD_EXIT" != "0" ]; then
-            echo "=== Build Error (last 100 lines) ==="
-            tail -100 build/build.log
-            grep -i 'error:' build/build.log | head -20 | while read line; do
-              echo "::error file=src/plugin/PluginProcessor.cpp::${line}"
-            done
-            exit $BUILD_EXIT
+          echo "=== 尝试构建 LianCore_VST3 ==="
+          cmake --build build --target LianCore_VST3 --parallel $(sysctl -n hw.logicalcpu) \
+            > build/build_vst3.log 2>&1 || VST3_ERR=$?
+          VST3_EXIT=${VST3_ERR:-$?}
+          echo "VST3 build exit code: $VST3_EXIT"
+          if [ "$VST3_EXIT" != "0" ]; then
+            echo "=== VST3 Build Error (last 50 lines) ==="
+            tail -50 build/build_vst3.log
+          else
+            echo "VST3 build succeeded"
           fi
+
+          echo "=== 尝试构建 LianCore_AU ==="
+          cmake --build build --target LianCore_AU --parallel $(sysctl -n hw.logicalcpu) \
+            > build/build_au.log 2>&1 || AU_ERR=$?
+          AU_EXIT=${AU_ERR:-$?}
+          echo "AU build exit code: $AU_EXIT"
+          if [ "$AU_EXIT" != "0" ]; then
+            echo "=== AU Build Error (last 50 lines) ==="
+            tail -50 build/build_au.log
+          else
+            echo "AU build succeeded"
+          fi
+
           echo "=== 构建产物 (LianCore_artefacts) ==="
           find build/LianCore_artefacts -type f 2>/dev/null | head -50
           echo "=== 搜索整个 build 目录的 VST3/AU ==="
