@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v5
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v6
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -82,109 +82,89 @@ jobs:
         id: cmake_configure
         run: |
           mkdir -p build
-          # JUCE 8.0.14 + Xcode 生成器不创建独立的 VST3/AU target，导致插件二进制无法生成
-          # 改用 Unix Makefiles 单配置生成器，LianCore_All target 可正确触发所有插件格式构建
           cmake -B build -G "Unix Makefiles" \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
             -DCMAKE_BUILD_TYPE=Release \
-            --log-level=DEBUG \
-            > build/cmake_configure.log 2>&1 || CMAKE_ERR=$?
-          CMAKE_EXIT=${CMAKE_ERR:-$?}
+            --log-level=STATUS \
+            2>&1 | tee build/cmake_configure.log
+          CMAKE_EXIT=${PIPESTATUS[0]}
           echo "CMake exit code: $CMAKE_EXIT"
           if [ "$CMAKE_EXIT" != "0" ]; then
-            echo "=== CMake Error (last 100 lines) ==="
-            tail -100 build/cmake_configure.log
-            echo "=== CMakeError.log ==="
-            cat build/CMakeFiles/CMakeError.log 2>/dev/null || echo "(no CMakeError.log)"
-            grep -i 'error\|fatal\|CMake Error' build/cmake_configure.log | head -20 | while read line; do
+            grep -i 'error|fatal|CMake Error' build/cmake_configure.log | head -20 | while read line; do
               echo "::error file=CMakeLists.txt::${line}"
             done
             exit $CMAKE_EXIT
           fi
 
-      - name: List CMake Targets (Diagnostic)
+      - name: Build LianCore (Static Library)
+        id: build_static
         run: |
-          echo "=== CMake Targets ==="
-          cmake --build build --target help 2>&1 | head -50
-          echo "=== Check for LianCore_All target ==="
-          cmake --build build --target LianCore_All --dry-run 2>&1 | head -20 || echo "LianCore_All not found or dry-run not supported"
+          echo "=== Building LianCore static library ==="
+          cmake --build build --target LianCore --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_liancore.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          if [ "$BUILD_EXIT" != "0" ]; then
+            tail -50 build/build_liancore.log
+            exit $BUILD_EXIT
+          fi
+          echo "LianCore static library built successfully"
 
-      - name: Build VST3 + AU
+      - name: Build Plugin Targets (LianCore_All)
         id: build_plugin
         run: |
-          echo "=== 尝试构建 LianCore_VST3 ==="
-          cmake --build build --target LianCore_VST3 --parallel $(sysctl -n hw.logicalcpu) \
-            > build/build_vst3.log 2>&1 || VST3_ERR=$?
-          VST3_EXIT=${VST3_ERR:-$?}
-          echo "VST3 build exit code: $VST3_EXIT"
-          if [ "$VST3_EXIT" != "0" ]; then
-            echo "=== VST3 Build Error (last 50 lines) ==="
-            tail -50 build/build_vst3.log
-          else
-            echo "VST3 build succeeded"
+          echo "=== Building all plugin formats (LianCore_All) ==="
+          cmake --build build --target LianCore_All --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_plugin.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          if [ "$BUILD_EXIT" != "0" ]; then
+            tail -50 build/build_plugin.log
+            exit $BUILD_EXIT
           fi
-
-          echo "=== 尝试构建 LianCore_AU ==="
-          cmake --build build --target LianCore_AU --parallel $(sysctl -n hw.logicalcpu) \
-            > build/build_au.log 2>&1 || AU_ERR=$?
-          AU_EXIT=${AU_ERR:-$?}
-          echo "AU build exit code: $AU_EXIT"
-          if [ "$AU_EXIT" != "0" ]; then
-            echo "=== AU Build Error (last 50 lines) ==="
-            tail -50 build/build_au.log
-          else
-            echo "AU build succeeded"
-          fi
-
-          echo "=== 构建产物 (LianCore_artefacts) ==="
+          echo "LianCore_All built successfully"
+          echo "=== Build artifacts ==="
           find build/LianCore_artefacts -type f 2>/dev/null | head -50
-          echo "=== 搜索整个 build 目录的 VST3/AU ==="
+          echo "=== VST3 bundles ==="
           find build -name "*.vst3" -type d 2>/dev/null | head -20
+          echo "=== AU components ==="
           find build -name "*.component" -type d 2>/dev/null | head -20
-          echo "=== 搜索所有 Mach-O 二进制 ==="
+          echo "=== Mach-O binaries ==="
           find build -type f -perm +111 2>/dev/null | head -20
-          echo "=== build 目录结构 ==="
-          find build -maxdepth 3 -type d 2>/dev/null | head -30
+          echo "=== Build dir tree ==="
+          find build -maxdepth 3 -type d 2>/dev/null | head -40
 
       - name: Verify Build Artifacts
         run: |
           echo "=== VST3 Binary ==="
-          if [ -f "build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore" ]; then
-            ls -la build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore
+          VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
+          if [ -f "$VST3_BIN" ]; then
+            ls -la "$VST3_BIN"
             echo "VST3 binary: OK"
           else
-            echo "VST3 binary: NOT FOUND"
+            echo "VST3 binary: NOT FOUND, searching..."
+            find build -path "*/MacOS/LianCore" -type f 2>/dev/null | head -10
           fi
           echo "=== AU Binary ==="
-          if [ -f "build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore" ]; then
-            ls -la build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore
+          AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
+          if [ -f "$AU_BIN" ]; then
+            ls -la "$AU_BIN"
             echo "AU binary: OK"
           else
-            echo "AU binary: NOT FOUND"
+            echo "AU binary: NOT FOUND, searching..."
+            find build -path "*/MacOS/LianCore" -type f 2>/dev/null | head -10
           fi
-          echo "=== All artifacts ==="
-          find build/LianCore_artefacts/Release -type f 2>/dev/null | head -30
+          find build/LianCore_artefacts/Release -type f 2>/dev/null | head -50
 
       - name: Build Tests
         run: |
-          # Unix Makefiles 单配置生成器，无需 --config 参数
           cmake --build build --target LianCoreTests --parallel $(sysctl -n hw.logicalcpu)
 
       - name: Run Unit Tests
         run: |
-          echo "=== Running tests ==="
-          # Unix Makefiles: 测试二进制直接在 build/tests/ 下，无 Release/ 子目录
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            echo "Running x86_64 tests under Rosetta 2"
             arch -x86_64 ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
           else
             ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
           fi
           echo "Test exit code: ${TEST_EXIT:-0}"
-          # SIGTRAP (133) / SIGILL (132) are known macOS test binary crashes
-          if [ "${TEST_EXIT:-0}" = "0" ] || [ "${TEST_EXIT:-0}" = "133" ] || [ "${TEST_EXIT:-0}" = "132" ]; then
-            echo "Tests completed (exit code accepted)"
-          else
+          if [ "${TEST_EXIT:-0}" != "0" ] && [ "${TEST_EXIT:-0}" != "133" ] && [ "${TEST_EXIT:-0}" != "132" ]; then
             echo "::error::Tests failed with exit code ${TEST_EXIT:-0}"
             exit ${TEST_EXIT:-0}
           fi
@@ -201,62 +181,49 @@ jobs:
       - name: Package DMG (arm64)
         if: matrix.arch == 'arm64'
         run: |
-          echo "=== 预检查：验证二进制文件 ==="
           VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
           AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
           HAS_BINARIES=false
-
           if [ -f "$VST3_BIN" ]; then
             echo "VST3 binary found: $(ls -la $VST3_BIN)"
             HAS_BINARIES=true
           else
             echo "::warning::VST3 binary not found at $VST3_BIN"
           fi
-
           if [ -f "$AU_BIN" ]; then
             echo "AU binary found: $(ls -la $AU_BIN)"
             HAS_BINARIES=true
           else
             echo "::warning::AU binary not found at $AU_BIN"
           fi
-
           if [ "$HAS_BINARIES" = "false" ]; then
-            echo "::error::No plugin binaries found! DMG will be empty. Aborting."
-            echo "=== Diagnostic: listing all build artifacts ==="
+            echo "::error::No plugin binaries found! Aborting DMG creation."
             find build/LianCore_artefacts -type f 2>/dev/null | head -50
-            echo "=== Diagnostic: search entire build dir for plugin binaries ==="
             find build -name "*.vst3" -o -name "*.component" 2>/dev/null | head -20
             find build -name "LianCore" -type f 2>/dev/null | head -20
+            find build -maxdepth 4 -type d 2>/dev/null | sort | head -50
             exit 1
           fi
-
-          echo "=== 打包 DMG ==="
           mkdir -p dmg_staging
-          # 复制 VST3
           if [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ]; then
             cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
             echo "VST3 copied to DMG staging"
           fi
-          # 复制 AU (如果存在)
           if [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ]; then
             cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
             echo "AU copied to DMG staging"
           fi
-          echo "=== DMG 内容 ==="
           ls -laR dmg_staging/
-          echo "=== 创建 DMG ==="
           hdiutil create -volname "LianCore V3" \
             -srcfolder dmg_staging \
             -ov -format UDZO \
             LianCoreV3-macOS.dmg
-          echo "=== DMG 文件信息 ==="
           ls -la LianCoreV3-macOS.dmg
           DMG_SIZE=$(stat -f%z LianCoreV3-macOS.dmg 2>/dev/null || echo "0")
           echo "DMG size: $DMG_SIZE bytes"
           if [ "$DMG_SIZE" -lt 10000000 ]; then
             echo "::warning::DMG is smaller than 10MB, may be incomplete"
           fi
-          echo "DMG created successfully"
 
       - name: Upload DMG Artifact
         if: matrix.arch == 'arm64'
