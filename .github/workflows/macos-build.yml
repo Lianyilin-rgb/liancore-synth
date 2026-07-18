@@ -54,7 +54,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v16
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v17
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -80,84 +80,31 @@ jobs:
             exit $CMAKE_EXIT
           fi
           echo "CMake configure succeeded"
-          echo "=== JUCE Plugin Target Diagnostics ==="
-          grep -A 20 "JUCE Plugin Target Diagnostics" build/cmake_configure.log || echo "No diagnostics found"
-          echo "=== Available LianCore targets ==="
-          cmake --build build --target help 2>&1 | grep -i "LianCore" | head -20
+          echo "=== Plugin Target Diagnostics ==="
+          grep -A 20 "JUCE Plugin Target Diagnostics" build/cmake_configure.log || echo "No diagnostics section found"
+          echo "=== Wrapper Sources ==="
+          grep "Added VST3/AU wrapper" build/cmake_configure.log || echo "No wrapper message found"
 
-      - name: Build LianCore (library)
+      - name: Build All
         run: |
-          echo "=== Building LianCore library target ==="
-          cmake --build build --target LianCore --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_liancore.log
+          echo "=== Building ALL_BUILD (VST3/AU wrapper sources are now in LianCore target) ==="
+          cmake --build build --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_all.log
           BUILD_EXIT=${PIPESTATUS[0]}
           echo "Build exit code: $BUILD_EXIT"
           if [ "$BUILD_EXIT" != "0" ]; then
-            tail -50 build/build_liancore.log
-            grep -i 'error:' build/build_liancore.log | head -20 | while read line; do
+            tail -80 build/build_all.log
+            grep -i 'error:' build/build_all.log | head -20 | while read line; do
               echo "::error::${line}"
             done
             exit $BUILD_EXIT
           fi
-          echo "LianCore library built"
-
-      - name: Build VST3 Plugin
-        run: |
-          echo "=== Building LianCore_VST3 target ==="
-          cmake --build build --target LianCore_VST3 --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_vst3.log
-          BUILD_EXIT=${PIPESTATUS[0]}
-          echo "Build exit code: $BUILD_EXIT"
-          if [ "$BUILD_EXIT" != "0" ]; then
-            echo "::warning::LianCore_VST3 target failed or not found"
-            tail -20 build/build_vst3.log
-          fi
-          echo "=== VST3 bundle check ==="
-          find build -name "*.vst3" -type d 2>/dev/null | head -10
-          find build -path "*/LianCore.vst3/Contents/MacOS/*" -type f 2>/dev/null | head -10
-
-      - name: Build AU Plugin
-        run: |
-          echo "=== Building LianCore_AU target ==="
-          cmake --build build --target LianCore_AU --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_au.log
-          BUILD_EXIT=${PIPESTATUS[0]}
-          echo "Build exit code: $BUILD_EXIT"
-          if [ "$BUILD_EXIT" != "0" ]; then
-            echo "::warning::LianCore_AU target failed or not found"
-            tail -20 build/build_au.log
-          fi
-          echo "=== AU bundle check ==="
-          find build -name "*.component" -type d 2>/dev/null | head -10
-          find build -path "*/LianCore.component/Contents/MacOS/*" -type f 2>/dev/null | head -10
-
-      - name: Verify Plugin Bundles
-        run: |
+          echo "=== Checking for plugin bundles ==="
           VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
           AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
-          HAS_ANY=false
-
-          if [ -f "$VST3_BIN" ]; then
-            echo "VST3 FOUND: $(ls -la "$VST3_BIN")"
-            file "$VST3_BIN" 2>/dev/null
-            HAS_ANY=true
-          else
-            echo "VST3 NOT FOUND at $VST3_BIN"
-          fi
-
-          if [ -f "$AU_BIN" ]; then
-            echo "AU FOUND: $(ls -la "$AU_BIN")"
-            file "$AU_BIN" 2>/dev/null
-            HAS_ANY=true
-          else
-            echo "AU NOT FOUND at $AU_BIN"
-          fi
-
+          [ -f "$VST3_BIN" ] && echo "VST3: $(ls -la $VST3_BIN)" && file "$VST3_BIN" 2>/dev/null
+          [ -f "$AU_BIN" ] && echo "AU: $(ls -la $AU_BIN)" && file "$AU_BIN" 2>/dev/null
           echo "=== All artefacts ==="
-          find build/LianCore_artefacts -type f 2>/dev/null | head -50
-
-          if [ "$HAS_ANY" = "false" ]; then
-            echo "::warning::No plugin bundles found! Searching entire build dir..."
-            find build -name "*.vst3" -o -name "*.component" 2>/dev/null | head -20
-            find build -name "LianCore" -type f 2>/dev/null | head -20
-          fi
+          find build/LianCore_artefacts -type f 2>/dev/null | head -30
 
       - name: Build Tests
         run: |

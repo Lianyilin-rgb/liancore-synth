@@ -398,6 +398,34 @@ if(APPLE)
         ${JUCE_DIR}/modules/juce_dsp/juce_dsp.cpp
         PROPERTIES LANGUAGE OBJCXX
     )
+
+    # 添加 VST3/AU 插件包装器源文件到 LianCore MODULE 库
+    # JUCE 8.0.14 的 juce_add_plugin 在 macOS 下不自动创建插件格式目标
+    # 手动将包装器源文件加入 target_sources 以确保 MODULE 库包含入口点
+    set(JUCE_PLUGIN_CLIENT_DIR ${JUCE_DIR}/modules/juce_audio_plugin_client)
+
+    target_sources(LianCore PRIVATE
+        ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_VST3.cpp
+        ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_VST3.mm
+        ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_AU_1.mm
+        ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_AU_2.mm
+    )
+
+    # VST3 .cpp 文件包含 Objective-C 头文件，需要作为 OBJCXX 编译
+    set_source_files_properties(
+        ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_VST3.cpp
+        ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_VST3.mm
+        ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_AU_1.mm
+        ${JUCE_PLUGIN_CLIENT_DIR}/juce_audio_plugin_client_AU_2.mm
+        PROPERTIES LANGUAGE OBJCXX
+    )
+
+    # 添加插件包装器需要的头文件搜索路径
+    target_include_directories(LianCore PRIVATE
+        ${JUCE_PLUGIN_CLIENT_DIR}
+    )
+
+    message(STATUS "  [LianCore] Added VST3/AU wrapper sources for macOS plugin bundle")
 endif()
 
 # ONNX Runtime 条件编译定义
