@@ -357,6 +357,16 @@ target_include_directories(LianCore PRIVATE
     ${JUCE_DIR}/modules
 )
 
+# macOS 需要将 JUCE 额外模块编译为 Objective-C++ (Foundation/Security 框架依赖)
+if(APPLE)
+    set_source_files_properties(
+        ${JUCE_DIR}/modules/juce_audio_formats/juce_audio_formats.cpp
+        ${JUCE_DIR}/modules/juce_cryptography/juce_cryptography.cpp
+        ${JUCE_DIR}/modules/juce_dsp/juce_dsp.cpp
+        PROPERTIES LANGUAGE OBJCXX
+    )
+endif()
+
 # ONNX Runtime 条件编译定义
 if(ONNXRUNTIME_AVAILABLE)
     target_compile_definitions(LianCore PRIVATE LIANCORE_HAS_ONNX=1)
