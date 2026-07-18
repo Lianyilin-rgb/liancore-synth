@@ -54,13 +54,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v18
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v19
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
         run: |
-          curl -L -o juce-8.0.14-osx.zip \
-            "https://github.com/juce-framework/JUCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
+          curl -L -o juce-8.0.14-osx.zip "https://github.com/juce-framework/JUCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
           unzip -q juce-8.0.14-osx.zip
           rm juce-8.0.14-osx.zip
           ls -la JUCE/
@@ -68,157 +67,131 @@ jobs:
       - name: Configure CMake
         run: |
           mkdir -p build
-          cmake -B build -G "Unix Makefiles" \
-            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
-            -DCMAKE_BUILD_TYPE=Release \
-            2>&1 | tee build/cmake_configure.log
+          cmake -B build -G "Unix Makefiles" -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} -DCMAKE_BUILD_TYPE=Release 2>&1 | tee build/cmake_configure.log
           CMAKE_EXIT=${PIPESTATUS[0]}
           if [ "$CMAKE_EXIT" != "0" ]; then
-            grep -i 'error\|fatal' build/cmake_configure.log | head -20 | while read line; do
-              echo "::error file=CMakeLists.txt::${line}"
-            done
+            grep -i 'error\|fatal' build/cmake_configure.log | head -20 | while read line; do echo "::error file=CMakeLists.txt::${line}"; done
             exit $CMAKE_EXIT
           fi
           echo "CMake configure succeeded"
-          echo "=== Plugin Target Diagnostics ==="
-          grep -A 20 "JUCE Plugin Target Diagnostics" build/cmake_configure.log || echo "No diagnostics section found"
-          echo "=== Available LianCore targets ==="
-          cmake --build build --target help 2>&1 | grep -i "LianCore" | head -20
 
       - name: Build All
         run: |
-          echo "=== Building ALL_BUILD ==="
           cmake --build build --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_all.log
           BUILD_EXIT=${PIPESTATUS[0]}
-          echo "Build exit code: $BUILD_EXIT"
           if [ "$BUILD_EXIT" != "0" ]; then
             tail -80 build/build_all.log
-            grep -i 'error:' build/build_all.log | head -20 | while read line; do
-              echo "::error::${line}"
-            done
+            grep -i 'error:' build/build_all.log | head -20 | while read line; do echo "::error::${line}"; done
             exit $BUILD_EXIT
           fi
-          echo "=== Build output diagnostics ==="
-          echo "--- All .dylib/.so/.bundle files ---"
-          find build -name "*.dylib" -o -name "*.so" -o -name "*.bundle" 2>/dev/null | head -20
-          echo "--- libLianCore* ---"
-          find build -name "libLianCore*" -o -name "LianCore.so" -o -name "LianCore.dylib" 2>/dev/null | head -20
-          echo "--- Plugin artefacts ---"
-          find build/LianCore_artefacts -type f 2>/dev/null | head -30
-          find build/LianCore_artefacts -type d 2>/dev/null | head -20
-          echo "--- .vst3 bundles ---"
-          find build -name "*.vst3" -type d 2>/dev/null | head -20
-          echo "--- .component bundles ---"
-          find build -name "*.component" -type d 2>/dev/null | head -20
-          echo "--- All binaries in build/ ---"
-          find build -maxdepth 1 -type f \( -perm +111 -o -name "*.so" -o -name "*.dylib" \) 2>/dev/null | head -20
+          echo "=== .o files count ==="
+          find build -name "*.o" -type f 2>/dev/null | wc -l
 
-      - name: Create Plugin Bundles (if needed)
+      - name: Create Static Library from .o
         run: |
-          VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
-          AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
-
-          if [ -f "$VST3_BIN" ] && [ -f "$AU_BIN" ]; then
-            echo "=== Plugin bundles already exist! ==="
-            ls -la "$VST3_BIN"
-            ls -la "$AU_BIN"
-            exit 0
-          fi
-
-          echo "=== Bundles not found, creating manually ==="
-
-          # Find the MODULE library binary
-          MODULE_BIN=$(find build -maxdepth 1 -name "LianCore.so" -o -name "LianCore.dylib" -o -name "libLianCore.so" -o -name "libLianCore.dylib" 2>/dev/null | head -1)
-
-          if [ -z "$MODULE_BIN" ]; then
-            echo "::warning::No MODULE library found, searching deeper..."
-            MODULE_BIN=$(find build -name "LianCore.so" -o -name "LianCore.dylib" 2>/dev/null | head -1)
-          fi
-
-          if [ -z "$MODULE_BIN" ]; then
-            echo "::error::Cannot find MODULE library binary!"
-            find build -name "*.so" -o -name "*.dylib" 2>/dev/null | head -30
+          OBJ_COUNT=$(find build -name "*.o" -type f 2>/dev/null | wc -l | tr -d ' ')
+          echo "Total .o files: $OBJ_COUNT"
+          if [ "$OBJ_COUNT" -eq 0 ]; then
+            echo "::error::No .o files found!"
+            find build -maxdepth 3 -type d 2>/dev/null | head -30
             exit 1
           fi
+          find build -name "*.o" -type f 2>/dev/null | xargs ar rcs build/libLianCore.a 2>&1
+          AR_EXIT=$?
+          if [ "$AR_EXIT" != "0" ]; then
+            echo "::error::ar rcs failed (exit $AR_EXIT)"
+            exit 1
+          fi
+          echo "Static library: $(ls -lh build/libLianCore.a)"
+          file build/libLianCore.a 2>/dev/null
 
-          echo "Found MODULE binary: $MODULE_BIN"
-          ls -la "$MODULE_BIN"
-          file "$MODULE_BIN" 2>/dev/null
-
+      - name: Link Plugin Bundles from Static Library
+        run: |
           SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || echo "")
+          SDK_FLAG=""
+          [ -n "$SDK_PATH" ] && SDK_FLAG="-isysroot $SDK_PATH"
           ARCH_FLAG="-arch ${{ matrix.cmake_arch }}"
+          FWKS="-framework Accelerate -framework AudioToolbox -framework AudioUnit"
+          FWKS="$FWKS -framework Carbon -framework Cocoa -framework CoreAudio -framework CoreAudioKit"
+          FWKS="$FWKS -framework CoreFoundation -framework CoreMIDI -framework CoreServices"
+          FWKS="$FWKS -framework Foundation -framework IOKit -framework Metal -framework MetalKit"
+          FWKS="$FWKS -framework QuartzCore -framework Security -framework WebKit"
 
-          # Create VST3 Bundle
-          if [ ! -f "$VST3_BIN" ]; then
-            echo "=== Creating VST3 Bundle ==="
-            VST3_DIR="build/LianCore_artefacts/Release/VST3/LianCore.vst3"
-            mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
-
-            cp "$MODULE_BIN" "$VST3_DIR/Contents/MacOS/LianCore"
-
-            cat > "$VST3_DIR/Contents/Info.plist" << 'PLISTEOF'
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>CFBundleDevelopmentRegion</key><string>English</string>
-                <key>CFBundleExecutable</key><string>LianCore</string>
-                <key>CFBundleIdentifier</key><string>com.lianyilin.liancore.vst3</string>
-                <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-                <key>CFBundleName</key><string>LianCore</string>
-                <key>CFBundlePackageType</key><string>BNDL</string>
-                <key>CFBundleShortVersionString</key><string>3.0.0</string>
-                <key>CFBundleVersion</key><string>3.0.0</string>
-                <key>NSHighResolutionCapable</key><true/>
-            </dict>
-            </plist>
-            PLISTEOF
-
-            echo "BNDL????" > "$VST3_DIR/Contents/PkgInfo"
-            echo "VST3 created: $(ls -la $VST3_DIR/Contents/MacOS/LianCore)"
+          # VST3 Bundle
+          echo "=== Creating VST3 Bundle ==="
+          VST3_DIR="build/LianCore_artefacts/Release/VST3/LianCore.vst3"
+          mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
+          c++ -bundle -Wl,-force_load build/libLianCore.a $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
+          if [ ${PIPESTATUS[0]} != "0" ]; then
+            echo "::error::VST3 link failed"
+            tail -30 build/vst3_link.log
+            exit 1
           fi
+          echo "VST3: $(ls -lh $VST3_DIR/Contents/MacOS/LianCore)"
+          file "$VST3_DIR/Contents/MacOS/LianCore" 2>/dev/null
 
-          # Create AU Bundle
-          if [ ! -f "$AU_BIN" ]; then
-            echo "=== Creating AU Bundle ==="
-            AU_DIR="build/LianCore_artefacts/Release/AU/LianCore.component"
-            mkdir -p "$AU_DIR/Contents/MacOS" "$AU_DIR/Contents/Resources"
+          cat > "$VST3_DIR/Contents/Info.plist" << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key><string>English</string>
+    <key>CFBundleExecutable</key><string>LianCore</string>
+    <key>CFBundleIdentifier</key><string>com.lianyilin.liancore.vst3</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleName</key><string>LianCore</string>
+    <key>CFBundlePackageType</key><string>BNDL</string>
+    <key>CFBundleShortVersionString</key><string>3.0.0</string>
+    <key>CFBundleVersion</key><string>3.0.0</string>
+    <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+PLIST
+          echo "BNDL????" > "$VST3_DIR/Contents/PkgInfo"
 
-            cp "$MODULE_BIN" "$AU_DIR/Contents/MacOS/LianCore"
-
-            cat > "$AU_DIR/Contents/Info.plist" << 'PLISTEOF'
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>CFBundleDevelopmentRegion</key><string>English</string>
-                <key>CFBundleExecutable</key><string>LianCore</string>
-                <key>CFBundleIdentifier</key><string>com.lianyilin.liancore.au</string>
-                <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-                <key>CFBundleName</key><string>LianCore</string>
-                <key>CFBundlePackageType</key><string>BNDL</string>
-                <key>CFBundleShortVersionString</key><string>3.0.0</string>
-                <key>CFBundleVersion</key><string>3.0.0</string>
-                <key>NSHighResolutionCapable</key><true/>
-                <key>AudioComponents</key>
-                <array>
-                    <dict>
-                        <key>description</key><string>LianCore V3</string>
-                        <key>factoryFunction</key><string>LianCoreAUFactory</string>
-                        <key>manufacturer</key><string>LnCr</string>
-                        <key>name</key><string>LianCore V3</string>
-                        <key>subtype</key><string>LnCr</string>
-                        <key>type</key><string>aumu</string>
-                        <key>version</key><integer>196608</integer>
-                    </dict>
-                </array>
-            </dict>
-            </plist>
-            PLISTEOF
-
-            echo "BNDL????" > "$AU_DIR/Contents/PkgInfo"
-            echo "AU created: $(ls -la $AU_DIR/Contents/MacOS/LianCore)"
+          # AU Bundle
+          echo "=== Creating AU Bundle ==="
+          AU_DIR="build/LianCore_artefacts/Release/AU/LianCore.component"
+          mkdir -p "$AU_DIR/Contents/MacOS" "$AU_DIR/Contents/Resources"
+          c++ -bundle -Wl,-force_load build/libLianCore.a $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
+          if [ ${PIPESTATUS[0]} != "0" ]; then
+            echo "::error::AU link failed"
+            tail -30 build/au_link.log
+            exit 1
           fi
+          echo "AU: $(ls -lh $AU_DIR/Contents/MacOS/LianCore)"
+          file "$AU_DIR/Contents/MacOS/LianCore" 2>/dev/null
+
+          cat > "$AU_DIR/Contents/Info.plist" << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key><string>English</string>
+    <key>CFBundleExecutable</key><string>LianCore</string>
+    <key>CFBundleIdentifier</key><string>com.lianyilin.liancore.au</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleName</key><string>LianCore</string>
+    <key>CFBundlePackageType</key><string>BNDL</string>
+    <key>CFBundleShortVersionString</key><string>3.0.0</string>
+    <key>CFBundleVersion</key><string>3.0.0</string>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>AudioComponents</key>
+    <array>
+        <dict>
+            <key>description</key><string>LianCore V3</string>
+            <key>factoryFunction</key><string>LianCoreAUFactory</string>
+            <key>manufacturer</key><string>LnCr</string>
+            <key>name</key><string>LianCore V3</string>
+            <key>subtype</key><string>LnCr</string>
+            <key>type</key><string>aumu</string>
+            <key>version</key><integer>196608</integer>
+        </dict>
+    </array>
+</dict>
+</plist>
+PLIST
+          echo "BNDL????" > "$AU_DIR/Contents/PkgInfo"
 
       - name: Build Tests
         run: |
@@ -231,7 +204,6 @@ jobs:
           else
             ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
           fi
-          echo "Test exit: ${TEST_EXIT:-0}"
           if [ "${TEST_EXIT:-0}" = "0" ] || [ "${TEST_EXIT:-0}" = "133" ] || [ "${TEST_EXIT:-0}" = "132" ]; then
             echo "Tests OK"
           else
@@ -254,23 +226,18 @@ jobs:
           VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
           AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
           HAS_BIN=false
-
-          [ -f "$VST3_BIN" ] && echo "VST3: $(ls -la $VST3_BIN)" && HAS_BIN=true
-          [ -f "$AU_BIN" ] && echo "AU: $(ls -la $AU_BIN)" && HAS_BIN=true
-
+          [ -f "$VST3_BIN" ] && echo "VST3: $(ls -lh $VST3_BIN)" && HAS_BIN=true
+          [ -f "$AU_BIN" ] && echo "AU: $(ls -lh $AU_BIN)" && HAS_BIN=true
           if [ "$HAS_BIN" = "false" ]; then
-            echo "::error::No binaries found for DMG packaging!"
-            find build -name "*.vst3" -o -name "*.component" 2>/dev/null | head -20
-            find build -name "LianCore" -type f 2>/dev/null | head -20
+            echo "::error::No binaries found for DMG!"
             exit 1
           fi
-
           mkdir -p dmg_staging
           [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ] && cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
           [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ] && cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
           hdiutil create -volname "LianCore V3" -srcfolder dmg_staging -ov -format UDZO LianCoreV3-macOS.dmg
           DMG_SIZE=$(stat -f%z LianCoreV3-macOS.dmg 2>/dev/null || echo "0")
-          echo "DMG: $(ls -la LianCoreV3-macOS.dmg)"
+          echo "DMG: $(ls -lh LianCoreV3-macOS.dmg)"
           if [ "$DMG_SIZE" -lt 10000000 ]; then
             echo "::warning::DMG < 10MB"
           fi
