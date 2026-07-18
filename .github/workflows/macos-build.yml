@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v4
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v5
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -82,68 +82,43 @@ jobs:
         id: cmake_configure
         run: |
           mkdir -p build
-          cmake -B build -G Xcode \
+          # JUCE 8.0.14 + Xcode 生成器不创建独立的 VST3/AU target，导致插件二进制无法生成
+          # 改用 Unix Makefiles 单配置生成器，LianCore_All target 可正确触发所有插件格式构建
+          cmake -B build -G "Unix Makefiles" \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
             -DCMAKE_BUILD_TYPE=Release \
             --log-level=DEBUG \
-            > build/cmake_configure.log 2>&1 || CMake_ERR=$?
-          CMAKE_EXIT=${CMake_ERR:-$?}
+            > build/cmake_configure.log 2>&1 || CMAKE_ERR=$?
+          CMAKE_EXIT=${CMAKE_ERR:-$?}
           echo "CMake exit code: $CMAKE_EXIT"
           if [ "$CMAKE_EXIT" != "0" ]; then
             echo "=== CMake Error (last 100 lines) ==="
             tail -100 build/cmake_configure.log
             echo "=== CMakeError.log ==="
             cat build/CMakeFiles/CMakeError.log 2>/dev/null || echo "(no CMakeError.log)"
-            # Extract error lines for annotations
             grep -i 'error\|fatal\|CMake Error' build/cmake_configure.log | head -20 | while read line; do
               echo "::error file=CMakeLists.txt::${line}"
             done
             exit $CMAKE_EXIT
           fi
 
-      - name: List Xcode Targets (Diagnostic)
-        run: |
-          echo "=== Available Xcode Targets ==="
-          xcodebuild -project build/LianCore.xcodeproj -list 2>&1 || echo "Cannot list Xcode targets"
-          echo "=== Available Schemes ==="
-          xcodebuild -project build/LianCore.xcodeproj -list -json 2>/dev/null || echo "Cannot list schemes in JSON"
-
-      - name: Build VST3 + AU (xcodebuild scheme)
+      - name: Build VST3 + AU
         id: build_plugin
         run: |
-          echo "=== 通过 xcodebuild scheme 构建 VST3 ==="
-          # JUCE Xcode 生成器使用 scheme 而非 target 管理插件格式
-          # 尝试多个常见 scheme 名称格式
-          for SCHEME in "LianCore - VST3" "LianCore_VST3" "VST3"; do
-            echo "尝试 scheme: '$SCHEME'"
-            if xcodebuild -project build/LianCore.xcodeproj -scheme "$SCHEME" -configuration Release build \
-              > build/build_vst3.log 2>&1; then
-              echo "VST3 build succeeded with scheme: '$SCHEME'"
-              break
-            else
-              echo "Scheme '$SCHEME' 失败"
-            fi
-          done
-
-          echo "=== 通过 xcodebuild scheme 构建 AU ==="
-          for SCHEME in "LianCore - AU" "LianCore_AU" "AU"; do
-            echo "尝试 scheme: '$SCHEME'"
-            if xcodebuild -project build/LianCore.xcodeproj -scheme "$SCHEME" -configuration Release build \
-              > build/build_au.log 2>&1; then
-              echo "AU build succeeded with scheme: '$SCHEME'"
-              break
-            else
-              echo "Scheme '$SCHEME' 失败"
-            fi
-          done
-
-          echo "=== 检查构建日志 ==="
-          echo "--- VST3 日志最后 50 行 ---"
-          tail -50 build/build_vst3.log 2>/dev/null || echo "(no VST3 log)"
-          echo "--- AU 日志最后 50 行 ---"
-          tail -50 build/build_au.log 2>/dev/null || echo "(no AU log)"
-
-          echo "=== 检查构建产物 ==="
+          # Unix Makefiles: LianCore_All target 会正确触发所有插件格式的构建
+          cmake --build build --target LianCore_All --parallel $(sysctl -n hw.logicalcpu) \
+            > build/build.log 2>&1 || BUILD_ERR=$?
+          BUILD_EXIT=${BUILD_ERR:-$?}
+          echo "Build exit code: $BUILD_EXIT"
+          if [ "$BUILD_EXIT" != "0" ]; then
+            echo "=== Build Error (last 100 lines) ==="
+            tail -100 build/build.log
+            grep -i 'error:' build/build.log | head -20 | while read line; do
+              echo "::error file=src/plugin/PluginProcessor.cpp::${line}"
+            done
+            exit $BUILD_EXIT
+          fi
+          echo "=== 构建产物 ==="
           find build/LianCore_artefacts -type f 2>/dev/null | head -50
 
       - name: Verify Build Artifacts
@@ -167,16 +142,18 @@ jobs:
 
       - name: Build Tests
         run: |
-          cmake --build build --config Release --target LianCoreTests --parallel $(sysctl -n hw.logicalcpu)
+          # Unix Makefiles 单配置生成器，无需 --config 参数
+          cmake --build build --target LianCoreTests --parallel $(sysctl -n hw.logicalcpu)
 
       - name: Run Unit Tests
         run: |
           echo "=== Running tests ==="
+          # Unix Makefiles: 测试二进制直接在 build/tests/ 下，无 Release/ 子目录
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
             echo "Running x86_64 tests under Rosetta 2"
-            arch -x86_64 ./build/tests/Release/LianCoreTests -s -r compact || TEST_EXIT=$?
+            arch -x86_64 ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
           else
-            ./build/tests/Release/LianCoreTests -s -r compact || TEST_EXIT=$?
+            ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
           fi
           echo "Test exit code: ${TEST_EXIT:-0}"
           # SIGTRAP (133) / SIGILL (132) are known macOS test binary crashes
@@ -222,8 +199,9 @@ jobs:
             echo "::error::No plugin binaries found! DMG will be empty. Aborting."
             echo "=== Diagnostic: listing all build artifacts ==="
             find build/LianCore_artefacts -type f 2>/dev/null | head -50
-            echo "=== Diagnostic: listing Xcode targets ==="
-            xcodebuild -project build/LianCore.xcodeproj -list 2>/dev/null || echo "Cannot list Xcode targets"
+            echo "=== Diagnostic: search entire build dir for plugin binaries ==="
+            find build -name "*.vst3" -o -name "*.component" 2>/dev/null | head -20
+            find build -name "LianCore" -type f 2>/dev/null | head -20
             exit 1
           fi
 
