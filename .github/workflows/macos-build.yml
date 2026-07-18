@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v12
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v13
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -103,12 +103,16 @@ jobs:
             tail -30 build/build_static.log
             exit $BUILD_EXIT
           fi
-          echo "LianCore static library built successfully"
-          echo "=== Searching for static library ==="
-          find build -name "libLianCore.a" -type f 2>/dev/null
-          find build -name "*.a" -type f 2>/dev/null | head -10
-          echo "=== Build artefacts directory ==="
-          find build/LianCore_artefacts -type f 2>/dev/null | head -20
+          echo "LianCore static library built"
+          STATIC_LIB=$(find build -name "libLianCore.a" -type f 2>/dev/null | head -1)
+          if [ -n "$STATIC_LIB" ]; then
+            echo "Static lib: $STATIC_LIB ($(ls -la $STATIC_LIB | awk '{print $5}') bytes)"
+            file "$STATIC_LIB"
+            lipo -info "$STATIC_LIB" 2>/dev/null || echo "lipo info not available"
+          else
+            echo "::error::Static lib not found!"
+            find build -name "*.a" -type f 2>/dev/null | head -10
+          fi
 
       - name: Build Tests
         run: |
@@ -127,27 +131,22 @@ jobs:
             exit ${TEST_EXIT:-0}
           fi
 
-      - name: Manual VST3 Bundle Creation
-        id: manual_vst3
+      - name: Create VST3 Binary
+        id: vst3_binary
         run: |
-          echo "=== Manual VST3 Bundle Creation ==="
           mkdir -p build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS
           mkdir -p build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/Resources
 
           STATIC_LIB=$(find build -name "libLianCore.a" -type f 2>/dev/null | head -1)
           if [ -z "$STATIC_LIB" ]; then
-            echo "::error::Static library not found! Searching for any .a files..."
-            find build -name "*.a" -type f 2>/dev/null | head -10
-            echo "::error::Build artefact dir contents:"
-            find build/LianCore_artefacts -type f 2>/dev/null | head -20
+            echo "::error::Static lib not found"
             exit 1
           fi
-          echo "Static library: $STATIC_LIB ($(ls -la $STATIC_LIB | awk '{print $5}') bytes)"
 
-          echo "Creating shared library from static library..."
-          c++ -dynamiclib \
+          echo "Linking VST3 bundle..."
+          c++ -bundle \
             -o build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore \
-            -Wl,-force_load "$STATIC_LIB" \
+            -Wl,-all_load "$STATIC_LIB" \
             -framework Accelerate \
             -framework AudioToolbox \
             -framework CoreAudio \
@@ -156,50 +155,40 @@ jobs:
             -framework CoreMIDI \
             -framework CoreServices \
             -framework Foundation \
-            -arch ${{ matrix.cmake_arch }} \
             2>&1 | tee build/vst3_link.log
           LINK_EXIT=${PIPESTATUS[0]}
           if [ "$LINK_EXIT" != "0" ]; then
-            echo "::error::VST3 link failed (exit code: $LINK_EXIT)"
+            echo "::error::VST3 link failed (exit: $LINK_EXIT)"
             tail -30 build/vst3_link.log
             exit $LINK_EXIT
           fi
-
-          if [ -f "build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore" ]; then
-            ls -la build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore
-            file build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore
-            echo "VST3 binary created: OK"
-          else
-            echo "::error::VST3 binary file not created"
-            exit 1
-          fi
+          ls -la build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore
+          file build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore
+          echo "VST3 binary OK"
 
           # Copy moduleinfo.json
           if [ -f "build/LianCore_artefacts/JuceLibraryCode/moduleinfo.json" ]; then
             cp build/LianCore_artefacts/JuceLibraryCode/moduleinfo.json \
               build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/Resources/
             echo "moduleinfo.json copied"
-          else
-            echo "::warning::moduleinfo.json not found, searching..."
-            find build -name "moduleinfo.json" 2>/dev/null | head -5
           fi
 
-      - name: Manual AU Bundle Creation
-        id: manual_au
+      - name: Create AU Binary
+        id: au_binary
         run: |
-          echo "=== Manual AU Bundle Creation ==="
           mkdir -p build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS
           mkdir -p build/LianCore_artefacts/Release/AU/LianCore.component/Contents/Resources
 
           STATIC_LIB=$(find build -name "libLianCore.a" -type f 2>/dev/null | head -1)
           if [ -z "$STATIC_LIB" ]; then
-            echo "::error::Static library not found"
+            echo "::error::Static lib not found"
             exit 1
           fi
 
-          c++ -dynamiclib \
+          echo "Linking AU bundle..."
+          c++ -bundle \
             -o build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore \
-            -Wl,-force_load "$STATIC_LIB" \
+            -Wl,-all_load "$STATIC_LIB" \
             -framework Accelerate \
             -framework AudioToolbox \
             -framework AudioUnit \
@@ -209,41 +198,16 @@ jobs:
             -framework CoreMIDI \
             -framework CoreServices \
             -framework Foundation \
-            -arch ${{ matrix.cmake_arch }} \
             2>&1 | tee build/au_link.log
           LINK_EXIT=${PIPESTATUS[0]}
           if [ "$LINK_EXIT" != "0" ]; then
-            echo "::error::AU link failed (exit code: $LINK_EXIT)"
+            echo "::error::AU link failed (exit: $LINK_EXIT)"
             tail -30 build/au_link.log
             exit $LINK_EXIT
           fi
-
-          if [ -f "build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore" ]; then
-            ls -la build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore
-            file build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore
-            echo "AU binary created: OK"
-          else
-            echo "::error::AU binary file not created"
-            exit 1
-          fi
-
-      - name: Verify Build Artifacts
-        run: |
-          echo "=== VST3 Binary ==="
-          VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
-          if [ -f "$VST3_BIN" ]; then
-            ls -la "$VST3_BIN"
-            file "$VST3_BIN"
-            echo "VST3 binary: OK"
-          fi
-          echo "=== AU Binary ==="
-          AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
-          if [ -f "$AU_BIN" ]; then
-            ls -la "$AU_BIN"
-            file "$AU_BIN"
-            echo "AU binary: OK"
-          fi
-          find build/LianCore_artefacts/Release -type f 2>/dev/null | head -50
+          ls -la build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore
+          file build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore
+          echo "AU binary OK"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -261,31 +225,20 @@ jobs:
           AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
           HAS_BINARIES=false
           if [ -f "$VST3_BIN" ]; then
-            echo "VST3 binary found: $(ls -la $VST3_BIN)"
+            echo "VST3 found: $(ls -la $VST3_BIN)"
             HAS_BINARIES=true
-          else
-            echo "::error::VST3 binary not found"
           fi
           if [ -f "$AU_BIN" ]; then
-            echo "AU binary found: $(ls -la $AU_BIN)"
+            echo "AU found: $(ls -la $AU_BIN)"
             HAS_BINARIES=true
-          else
-            echo "::error::AU binary not found"
           fi
           if [ "$HAS_BINARIES" = "false" ]; then
-            echo "::error::No plugin binaries found! Aborting."
+            echo "::error::No plugin binaries!"
             exit 1
           fi
           mkdir -p dmg_staging
-          if [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ]; then
-            cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
-            echo "VST3 copied"
-          fi
-          if [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ]; then
-            cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
-            echo "AU copied"
-          fi
-          ls -laR dmg_staging/
+          [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ] && cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
+          [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ] && cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
           hdiutil create -volname "LianCore V3" \
             -srcfolder dmg_staging \
             -ov -format UDZO \
@@ -294,9 +247,9 @@ jobs:
           DMG_SIZE=$(stat -f%z LianCoreV3-macOS.dmg 2>/dev/null || echo "0")
           echo "DMG size: $DMG_SIZE bytes"
           if [ "$DMG_SIZE" -lt 10000000 ]; then
-            echo "::warning::DMG is smaller than 10MB, may be incomplete"
+            echo "::warning::DMG < 10MB"
           else
-            echo "DMG size is good!"
+            echo "DMG size OK!"
           fi
 
       - name: Upload DMG Artifact
