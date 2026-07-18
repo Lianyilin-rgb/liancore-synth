@@ -165,10 +165,18 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         float pressureCutoff = mpeProcessor_.getPressureToFilterCutoff();
         float timbreResonance = mpeProcessor_.getTimbreToResonance();
 
+        // 微音程调音倍率 (P0-3): 对当前音符应用微音程偏移
+        float tuningRatio = 1.0f;
+        int firstNoteNumber = mpeProcessor_.getNoteState(0).noteNumber;
+        if (tuningManager_.isTuningLoaded()) {
+            tuningRatio = static_cast<float>(tuningManager_.getTuningRatio(firstNoteNumber));
+        }
+
         // 弯音 → 振荡器频率 (parameter 0: 频率, 归一化 0-1 → 0-20000Hz)
+        // 应用微音程倍率: baseFreq * pitchBendRatio * tuningRatio
         if (auto* osc = audioGraph_.getNode(oscNodeId_)) {
             float baseFreq = osc->getParameter(0) * 20000.0f;
-            float bentFreq = baseFreq * pitchBendRatio;
+            float bentFreq = baseFreq * pitchBendRatio * tuningRatio;
             osc->setParameter(0, juce::jlimit(0.0f, 1.0f, bentFreq / 20000.0f));
         }
 
@@ -355,6 +363,9 @@ bool PluginProcessor::isAIModelLoaded() const {
 
 void PluginProcessor::enableMPE(bool enable) {
     mpeProcessor_.enable(enable);
+    // MPE zone layout 已在 MPEProcessor::configureMPEZone() 中配置到 MPEInstrument
+    // JUCE 8.0.14 中 supportsMPE() override 替代了 setMPEZoneLayout()
+    // DAW 通过 supportsMPE() 返回 true 识别 MPE 兼容插件
 }
 
 bool PluginProcessor::isMPEEnabled() const {

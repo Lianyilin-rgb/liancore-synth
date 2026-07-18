@@ -51,6 +51,9 @@ public:
 
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 
+    // MPE: 声明支持 MPE（MIDI Polyphonic Expression），让 DAW 识别为 MPE 兼容插件
+    bool supportsMPE() const override { return mpeProcessor_.isEnabled(); }
+
     // =========================================================================
     // LianCore 特定接口
     // =========================================================================

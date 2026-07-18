@@ -10,7 +10,7 @@ namespace LianCore {
 // 构造
 // =============================================================================
 MPEProcessor::MPEProcessor() {
-    voiceStates_.reserve(16); // 最大 16 复音
+    voiceStates_.reserve(kMPEMaxPolyphony); // 最大 32 复音 (P1-1)
 
     // 默认启用 MPE
     configureMPEZone();
