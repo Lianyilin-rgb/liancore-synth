@@ -121,9 +121,9 @@ jobs:
       - name: Verify Build Artifacts
         run: |
           echo "=== VST3 ==="
-          ls -la build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore || echo "VST3 binary not found"
+          ls -la build/LianCore_artefacts/VST3/LianCore.vst3/Contents/MacOS/LianCore || echo "VST3 binary not found"
           echo "=== AU ==="
-          ls -la build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore || echo "AU binary not found"
+          ls -la build/LianCore_artefacts/AU/LianCore.component/Contents/MacOS/LianCore || echo "AU binary not found"
 
       - name: Build Tests
         run: |
@@ -131,13 +131,13 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          ./build/tests/Release/LianCoreTests -s
+          ./build/tests/LianCoreTests -s
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: LianCore-macOS-${{ matrix.arch }}
           path: |
-            build/LianCore_artefacts/Release/VST3/
-            build/LianCore_artefacts/Release/AU/
+            build/LianCore_artefacts/VST3/
+            build/LianCore_artefacts/AU/
           retention-days: 7
