@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v9
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v10
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -78,7 +78,7 @@ jobs:
           echo "JUCE installed at $(pwd)/JUCE"
           ls -la JUCE/
 
-      - name: Configure CMake (Xcode)
+      - name: Configure CMake
         id: cmake_configure
         run: |
           mkdir -p build
@@ -92,51 +92,37 @@ jobs:
             grep -i 'error|fatal|CMake Error' build/cmake_configure.log | head -20
             exit $CMAKE_EXIT
           fi
-          echo "=== CMake configure diagnostics (grep for plugin targets) ==="
-          grep -i "LianCore_VST3\|LianCore_AU\|LianCore_All\|plugin target\|active_formats\|active_plugin" build/cmake_configure.log | head -30
+          echo "=== CMake Diagnostics (as annotations) ==="
+          grep -i "LianCore_VST3\|LianCore_AU\|LianCore_All\|plugin target\|active_formats\|active_plugin\|EXISTS\|MISSING\|JUCE Plugin Target" build/cmake_configure.log | while read -r line; do
+            echo "::notice::DIAG: $line"
+          done
           echo "=== Xcode targets ==="
-          xcodebuild -project build/LianCore.xcodeproj -list 2>&1 | head -60
+          xcodebuild -project build/LianCore.xcodeproj -list 2>&1 | while read -r line; do
+            echo "::notice::XCODE: $line"
+          done
 
-      - name: Build VST3 (xcodebuild target)
-        id: build_vst3
+      - name: Build Plugin Targets
+        id: build_plugin
         run: |
-          echo "=== Building VST3 target ==="
-          xcodebuild -project build/LianCore.xcodeproj \
-            -target LianCore_VST3 \
-            -configuration Release \
-            -arch ${{ matrix.cmake_arch }} \
-            build 2>&1 | tee build/build_vst3.log
+          echo "=== Building ALL_BUILD (default target) ==="
+          cmake --build build --config Release --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_all.log | tail -30
           BUILD_EXIT=${PIPESTATUS[0]}
-          echo "Build exit code: $BUILD_EXIT"
           if [ "$BUILD_EXIT" != "0" ]; then
-            echo "=== VST3 build log (last 30 lines) ==="
-            tail -30 build/build_vst3.log
-            echo "=== Trying alternative target names ==="
-            xcodebuild -project build/LianCore.xcodeproj -list 2>&1 | head -30
+            echo "=== Build failed (last 40 lines) ==="
+            tail -40 build/build_all.log
             exit $BUILD_EXIT
           fi
-          echo "=== VST3 build result ==="
+          echo "=== Build artifacts ==="
+          find build/LianCore_artefacts -type f 2>/dev/null | head -50
+          echo "=== VST3 bundles ==="
           find build -name "*.vst3" -type d 2>/dev/null | head -10
-          find build -name "LianCore" -type f 2>/dev/null | head -10
-
-      - name: Build AU (xcodebuild target)
-        id: build_au
-        run: |
-          echo "=== Building AU target ==="
-          xcodebuild -project build/LianCore.xcodeproj \
-            -target LianCore_AU \
-            -configuration Release \
-            -arch ${{ matrix.cmake_arch }} \
-            build 2>&1 | tee build/build_au.log
-          BUILD_EXIT=${PIPESTATUS[0]}
-          echo "Build exit code: $BUILD_EXIT"
-          if [ "$BUILD_EXIT" != "0" ]; then
-            echo "=== AU build log (last 30 lines) ==="
-            tail -30 build/build_au.log
-            exit $BUILD_EXIT
-          fi
-          echo "=== AU build result ==="
+          echo "=== AU components ==="
           find build -name "*.component" -type d 2>/dev/null | head -10
+          echo "=== Mach-O binaries ==="
+          find build -type f -perm +111 2>/dev/null | head -20
+          echo "=== All LianCore named files ==="
+          find build -name "LianCore*" -type f 2>/dev/null | head -20
+          find build -name "LianCore*" -type d 2>/dev/null | head -20
 
       - name: Verify Build Artifacts
         run: |
@@ -144,18 +130,17 @@ jobs:
           VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
           if [ -f "$VST3_BIN" ]; then
             ls -la "$VST3_BIN"
-            echo "VST3 binary: OK"
+            echo "::notice::VST3 binary: OK"
           else
-            echo "VST3 binary: NOT FOUND, searching everywhere..."
-            find build -path "*/MacOS/LianCore" -type f 2>/dev/null | head -10
+            echo "::warning::VST3 binary: NOT FOUND at $VST3_BIN"
           fi
           echo "=== AU Binary ==="
           AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
           if [ -f "$AU_BIN" ]; then
             ls -la "$AU_BIN"
-            echo "AU binary: OK"
+            echo "::notice::AU binary: OK"
           else
-            echo "AU binary: NOT FOUND"
+            echo "::warning::AU binary: NOT FOUND at $AU_BIN"
           fi
           find build/LianCore_artefacts/Release -type f 2>/dev/null | head -50
 
