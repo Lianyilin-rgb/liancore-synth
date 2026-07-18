@@ -87,28 +87,44 @@ jobs:
           cmake . -G Xcode -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} 2>&1
           echo "Minimal CMake test exit code: $?"
 
-      - name: Test CMake + JUCE (diagnostic)
+      - name: Test CMake + JUCE (diagnostic - Xcode)
         run: |
-          mkdir -p build_juce
-          cat > build_juce/CMakeLists.txt << 'CMEOF'
+          mkdir -p build_juce_xcode
+          cat > build_juce_xcode/CMakeLists.txt << 'CMEOF'
           cmake_minimum_required(VERSION 3.24)
           project(JUCE_Test VERSION 1.0 LANGUAGES C CXX)
-          set(JUCE_DIR "${CMAKE_SOURCE_DIR}/../JUCE")
-          if(NOT EXISTS "${JUCE_DIR}/CMakeLists.txt")
-            set(JUCE_DIR "${CMAKE_SOURCE_DIR}/../juce-8.0.14-osx/JUCE")
+          if(NOT EXISTS "${CMAKE_SOURCE_DIR}/../JUCE/CMakeLists.txt")
+            message(FATAL_ERROR "JUCE not found at ${CMAKE_SOURCE_DIR}/../JUCE")
           endif()
-          message(STATUS "JUCE_DIR=${JUCE_DIR}")
-          message(STATUS "JUCE_DIR exists: $<IF:$<EXISTS:${JUCE_DIR}/CMakeLists.txt>,YES,NO>")
-          add_subdirectory(${JUCE_DIR})
+          message(STATUS "JUCE found at ${CMAKE_SOURCE_DIR}/../JUCE")
+          add_subdirectory("${CMAKE_SOURCE_DIR}/../JUCE")
           message(STATUS "JUCE add_subdirectory: PASSED")
           CMEOF
-          cd build_juce
+          cd build_juce_xcode
           cmake . -G Xcode \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
             2>&1
-          echo "JUCE test exit code: $?"
+          echo "JUCE Xcode test exit code: $?"
+
+      - name: Test CMake + JUCE (diagnostic - Unix Makefiles)
+        run: |
+          mkdir -p build_juce_make
+          cat > build_juce_make/CMakeLists.txt << 'CMEOF'
+          cmake_minimum_required(VERSION 3.24)
+          project(JUCE_Test VERSION 1.0 LANGUAGES C CXX)
+          if(NOT EXISTS "${CMAKE_SOURCE_DIR}/../JUCE/CMakeLists.txt")
+            message(FATAL_ERROR "JUCE not found at ${CMAKE_SOURCE_DIR}/../JUCE")
+          endif()
+          message(STATUS "JUCE found at ${CMAKE_SOURCE_DIR}/../JUCE")
+          add_subdirectory("${CMAKE_SOURCE_DIR}/../JUCE")
+          message(STATUS "JUCE add_subdirectory: PASSED")
+          CMEOF
+          cd build_juce_make
+          cmake . -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
+            2>&1
+          echo "JUCE Makefiles test exit code: $?"
 
       - name: Configure CMake
         id: cmake_configure
