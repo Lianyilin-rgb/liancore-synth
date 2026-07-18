@@ -43,20 +43,17 @@ jobs:
         id: cache-juce
         uses: actions/cache@v4
         with:
-          path: juce-8.0.14-osx
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v2
+          path: JUCE
+          key: juce-8.0.14-osx-${{ matrix.arch }}
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
         run: |
-          cmake -E make_directory juce-8.0.14-osx
-          cd juce-8.0.14-osx
-          curl -fsSL -o juce.zip "https://github.com/juce-framework/JUCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
-          unzip -q juce.zip
-          rm juce.zip
-          cd ..
-          echo "JUCE directory contents:"
-          ls -la juce-8.0.14-osx/
+          curl -L -o juce-8.0.14-osx.zip \
+            "https://github.com/juce-framework/JUCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
+          unzip -q juce-8.0.14-osx.zip
+          rm juce-8.0.14-osx.zip
+          echo "JUCE installed at $(pwd)/JUCE"
 
       - name: Configure CMake
         run: |
