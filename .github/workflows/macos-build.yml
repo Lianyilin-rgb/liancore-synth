@@ -16,7 +16,7 @@ jobs:
         arch: [arm64, x86_64]
         include:
           - arch: arm64
-            runner: macos-latest
+            runner: macos-14
             cmake_arch: arm64
           - arch: x86_64
             runner: macos-13
@@ -36,25 +36,11 @@ jobs:
         with:
           xcode-version: 'latest-stable'
 
-      - name: Install Command Line Tools
+      - name: Install CMake 3.28.6
         run: |
-          echo "=== Checking compiler availability ==="
-          echo "CC: $(which cc || echo 'NOT FOUND')"
-          echo "CXX: $(which c++ || echo 'NOT FOUND')"
-          cc --version 2>&1 || echo "cc not available"
-          c++ --version 2>&1 || echo "c++ not available"
-          echo "=== Xcode CLT ==="
-          xcode-select -p 2>&1 || echo "xcode-select not set"
-          # Force install CLT if needed
-          if ! cc --version &>/dev/null; then
-            echo "Installing Command Line Tools..."
-            xcode-select --install 2>&1 || true
-            # Wait for CLT to be available
-            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer 2>&1 || true
-          fi
-          echo "=== Final compiler check ==="
-          cc --version 2>&1
-          c++ --version 2>&1
+          curl -L -o cmake.tar.gz "https://github.com/Kitware/CMake/releases/download/v3.28.6/cmake-3.28.6-macos-universal.tar.gz"
+          tar xzf cmake.tar.gz
+          echo "$(pwd)/cmake-3.28.6-macos-universal/CMake.app/Contents/bin" >> $GITHUB_PATH
 
       - name: System Diagnostics
         run: |
@@ -68,6 +54,8 @@ jobs:
           echo "=== Compilers ==="
           cc --version 2>&1
           c++ --version 2>&1
+          echo "=== xcode-select ==="
+          xcode-select -p 2>&1
           echo "=== Working Directory ==="
           pwd
           ls -la
@@ -77,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v3
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v4
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -92,36 +80,25 @@ jobs:
       - name: Configure CMake
         id: cmake_configure
         run: |
+          mkdir -p build
           cmake -B build -G Xcode \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
             -DCMAKE_BUILD_TYPE=Release \
-            2>&1 | tee build/cmake_configure.log
-          CMAKE_EXIT=${PIPESTATUS[0]}
+            --log-level=DEBUG \
+            > build/cmake_configure.log 2>&1 || CMake_ERR=$?
+          CMAKE_EXIT=${CMake_ERR:-$?}
           echo "CMake exit code: $CMAKE_EXIT"
-          exit $CMAKE_EXIT
-
-      - name: Show CMake configure log (on failure)
-        if: failure() && steps.cmake_configure.outcome == 'failure'
-        run: |
-          echo "## CMake Configure Failed (last 200 lines)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -200 build/cmake_configure.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no log file)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## CMakeError.log" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat build/CMakeFiles/CMakeError.log 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "(no CMakeError.log)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload CMake configure log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cmake-log-${{ matrix.arch }}
-          path: |
-            build/cmake_configure.log
-            build/CMakeFiles/CMakeError.log
-          if-no-files-found: warn
+          if [ "$CMAKE_EXIT" != "0" ]; then
+            echo "=== CMake Error (last 100 lines) ==="
+            tail -100 build/cmake_configure.log
+            echo "=== CMakeError.log ==="
+            cat build/CMakeFiles/CMakeError.log 2>/dev/null || echo "(no CMakeError.log)"
+            # Extract error lines for annotations
+            grep -i 'error\|fatal\|CMake Error' build/cmake_configure.log | head -20 | while read line; do
+              echo "::error file=CMakeLists.txt::${line}"
+            done
+            exit $CMAKE_EXIT
+          fi
 
       - name: Build VST3 + AU
         run: |
