@@ -81,7 +81,7 @@ jobs:
         id: cmake_configure
         run: |
           mkdir -p build
-          cmake -B build -G Xcode \
+          cmake -B build -G "Unix Makefiles" \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
             -DCMAKE_BUILD_TYPE=Release \
             --log-level=DEBUG \
