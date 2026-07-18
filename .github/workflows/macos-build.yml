@@ -34,7 +34,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: 'latest-stable'
+          xcode-version: '16.3'
 
       - name: Install CMake 3.28.6
         run: |
