@@ -51,7 +51,10 @@ jobs:
         run: |
           curl -L -o juce-8.0.14-osx.zip \
             "https://github.com/juce-framework/JUCE/releases/download/8.0.14/juce-8.0.14-osx.zip"
-          unzip juce-8.0.14-osx.zip
+          unzip -q juce-8.0.14-osx.zip
+          # 移动 JUCE 到 CMakeLists.txt 期望的路径: juce-8.0.14-osx/JUCE/
+          mkdir -p juce-8.0.14-osx
+          mv JUCE juce-8.0.14-osx/
 
       - name: Configure CMake
         run: |
