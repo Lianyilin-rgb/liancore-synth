@@ -101,18 +101,42 @@ jobs:
             exit $CMAKE_EXIT
           fi
 
-      - name: Build VST3 + AU
-        id: build_plugin
+      - name: List Xcode Targets (Diagnostic)
         run: |
-          cmake --build build --config Release --target LianCore_All --parallel $(sysctl -n hw.logicalcpu) \
-            > build/build.log 2>&1 || BUILD_ERR=$?
+          echo "=== Available Xcode Targets ==="
+          xcodebuild -project build/LianCore.xcodeproj -list 2>&1 || echo "Cannot list Xcode targets"
+          echo "=== Available Schemes ==="
+          xcodebuild -project build/LianCore.xcodeproj -list -json 2>/dev/null || echo "Cannot list schemes in JSON"
+
+      - name: Build VST3
+        id: build_vst3
+        run: |
+          cmake --build build --config Release --target LianCore_VST3 --parallel $(sysctl -n hw.logicalcpu) \
+            > build/build_vst3.log 2>&1 || BUILD_ERR=$?
           BUILD_EXIT=${BUILD_ERR:-$?}
-          echo "Build exit code: $BUILD_EXIT"
+          echo "VST3 build exit code: $BUILD_EXIT"
           if [ "$BUILD_EXIT" != "0" ]; then
-            echo "=== Build Error (last 100 lines) ==="
-            tail -100 build/build.log
+            echo "=== VST3 Build Error (last 100 lines) ==="
+            tail -100 build/build_vst3.log
             echo "=== Error lines ==="
-            grep -i 'error:' build/build.log | head -20 | while read line; do
+            grep -i 'error:' build/build_vst3.log | head -20 | while read line; do
+              echo "::error file=src/plugin/PluginProcessor.cpp::${line}"
+            done
+            exit $BUILD_EXIT
+          fi
+
+      - name: Build AU
+        id: build_au
+        run: |
+          cmake --build build --config Release --target LianCore_AU --parallel $(sysctl -n hw.logicalcpu) \
+            > build/build_au.log 2>&1 || BUILD_ERR=$?
+          BUILD_EXIT=${BUILD_ERR:-$?}
+          echo "AU build exit code: $BUILD_EXIT"
+          if [ "$BUILD_EXIT" != "0" ]; then
+            echo "=== AU Build Error (last 100 lines) ==="
+            tail -100 build/build_au.log
+            echo "=== Error lines ==="
+            grep -i 'error:' build/build_au.log | head -20 | while read line; do
               echo "::error file=src/plugin/PluginProcessor.cpp::${line}"
             done
             exit $BUILD_EXIT
