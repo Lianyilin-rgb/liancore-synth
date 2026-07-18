@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v10
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v11
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -78,11 +78,11 @@ jobs:
           echo "JUCE installed at $(pwd)/JUCE"
           ls -la JUCE/
 
-      - name: Configure CMake
+      - name: Configure CMake (Xcode)
         id: cmake_configure
         run: |
           mkdir -p build
-          cmake -B build -G "Unix Makefiles" \
+          cmake -B build -G Xcode \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.cmake_arch }} \
             -DCMAKE_BUILD_TYPE=Release \
             --log-level=STATUS \
@@ -95,64 +95,63 @@ jobs:
             done
             exit $CMAKE_EXIT
           fi
+          echo "=== JucePluginDefines.h check ==="
+          if [ -f "build/JuceLibraryCode/JucePluginDefines.h" ]; then
+            echo "JucePluginDefines.h generated OK"
+            cat build/JuceLibraryCode/JucePluginDefines.h
+          else
+            echo "::warning::JucePluginDefines.h not found, searching..."
+            find build -name "JucePluginDefines.h" -type f 2>/dev/null | head -5
+          fi
 
-      - name: Build Static Library + Generate Headers
-        id: build_static
+      - name: Build ALL_BUILD (Xcode)
+        id: build_all
         run: |
-          echo "=== Building LianCore static library ==="
-          cmake --build build --target LianCore --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_liancore.log
+          echo "=== Building ALL_BUILD with Xcode (${{ matrix.cmake_arch }}) ==="
+          cmake --build build --config Release --target ALL_BUILD --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_all.log
           BUILD_EXIT=${PIPESTATUS[0]}
-          echo "LianCore build exit code: $BUILD_EXIT"
+          echo "Build exit code: $BUILD_EXIT"
           if [ "$BUILD_EXIT" != "0" ]; then
-            tail -50 build/build_liancore.log
+            echo "=== Build Error (last 50 lines) ==="
+            tail -50 build/build_all.log
+            echo "=== Error lines ==="
+            grep -i 'error:' build/build_all.log | head -20 | while read line; do
+              echo "::error file=src/plugin/PluginProcessor.cpp::${line}"
+            done
             exit $BUILD_EXIT
           fi
-          echo "LianCore static library built successfully"
+          echo "ALL_BUILD completed successfully"
 
+      - name: Find Static Library + Diagnostics
+        id: find_static
+        run: |
+          echo "=== Searching for static library ==="
           STATIC_LIB=$(find build -name "libLianCore.a" -type f 2>/dev/null | head -1)
           if [ -n "$STATIC_LIB" ]; then
             echo "Static lib: $STATIC_LIB ($(ls -la $STATIC_LIB | awk '{print $5}') bytes)"
             file "$STATIC_LIB" 2>/dev/null || echo "file command not available"
           else
-            echo "::error::libLianCore.a not found!"
-            exit 1
+            echo "::warning::libLianCore.a not found by name, searching for any .a files..."
+            find build -name "*.a" -type f 2>/dev/null | head -20
+            echo "=== Searching for LianCore in build dirs ==="
+            find build/Release -name "*.a" -type f 2>/dev/null | head -20
+            find build -maxdepth 3 -name "libLianCore*" -type f 2>/dev/null | head -10
           fi
-
-          echo "=== JucePluginDefines.h diagnostic ==="
-          if [ -f "build/JuceLibraryCode/JucePluginDefines.h" ]; then
-            echo "JucePluginDefines.h found:"
-            cat build/JuceLibraryCode/JucePluginDefines.h
-          else
-            echo "::warning::JucePluginDefines.h not found at build/JuceLibraryCode/"
-            find build -name "JucePluginDefines.h" -type f 2>/dev/null | head -5
-          fi
-
-      - name: Build Plugin Targets (LianCore_All)
-        id: build_plugin
-        run: |
-          echo "=== Building all plugin formats (LianCore_All) ==="
-          cmake --build build --target LianCore_All --parallel $(sysctl -n hw.logicalcpu) 2>&1 | tee build/build_plugin.log
-          BUILD_EXIT=${PIPESTATUS[0]}
-          echo "LianCore_All build exit code: $BUILD_EXIT"
-          if [ "$BUILD_EXIT" != "0" ]; then
-            tail -50 build/build_plugin.log
-          fi
-          echo "LianCore_All built"
-
-          echo "=== Searching for all .o files ==="
-          find build -name "*.o" -type f 2>/dev/null | head -30
-          echo "=== Searching for plugin client objects ==="
-          find build -path "*plugin_client*" -type f 2>/dev/null | head -20
-          echo "=== Searching for VST3/AU in CMakeFiles ==="
-          find build/CMakeFiles -name "*.o" -type f 2>/dev/null | head -20
+          echo "=== JucePluginDefines.h location ==="
+          find build -name "JucePluginDefines.h" -type f 2>/dev/null | head -5
+          echo "=== Build output structure ==="
+          find build/Release -maxdepth 3 -type d 2>/dev/null | sort | head -30
 
       - name: Create Plugin Bundles
         run: |
           set -e
 
+          # Find static library
           STATIC_LIB=$(find build -name "libLianCore.a" -type f 2>/dev/null | head -1)
           if [ -z "$STATIC_LIB" ]; then
-            echo "::error::libLianCore.a not found"
+            echo "::error::libLianCore.a not found! Cannot create plugin bundles."
+            echo "All .a files:"
+            find build -name "*.a" -type f 2>/dev/null | head -20
             exit 1
           fi
           echo "Static library: $STATIC_LIB"
@@ -165,8 +164,16 @@ jobs:
             echo "SDK: $SDK_PATH"
           fi
 
+          # Find JucePluginDefines.h
+          JUCE_DEFINES_DIR=$(dirname $(find build -name "JucePluginDefines.h" -type f 2>/dev/null | head -1))
+          if [ -z "$JUCE_DEFINES_DIR" ]; then
+            echo "::error::JucePluginDefines.h not found!"
+            exit 1
+          fi
+          echo "JucePluginDefines.h in: $JUCE_DEFINES_DIR"
+
           JUCE_MODULES="JUCE/modules"
-          INCLUDE_FLAGS="-I$JUCE_MODULES -Ibuild/JuceLibraryCode -Isrc"
+          INCLUDE_FLAGS="-I$JUCE_MODULES -I$JUCE_DEFINES_DIR -Isrc"
 
           FRAMEWORKS="-framework Accelerate -framework AudioToolbox -framework AudioUnit"
           FRAMEWORKS="$FRAMEWORKS -framework Carbon -framework Cocoa -framework CoreAudio"
@@ -184,7 +191,7 @@ jobs:
           VST3_OBJ_FILES=""
 
           if [ -f "$VST3_SRC" ]; then
-            c++ -c -std=c++17 $SDK_FLAG $INCLUDE_FLAGS -o build/vst3_client.o "$VST3_SRC" 2>&1 | tee build/vst3_compile.log
+            c++ -c -std=c++17 $SDK_FLAG $INCLUDE_FLAGS -arch ${{ matrix.cmake_arch }} -o build/vst3_client.o "$VST3_SRC" 2>&1 | tee build/vst3_compile.log
             if [ ${PIPESTATUS[0]} != "0" ]; then
               echo "::error::VST3 .cpp wrapper compilation failed"
               tail -30 build/vst3_compile.log
@@ -195,7 +202,7 @@ jobs:
           fi
 
           if [ -f "$VST3_MM" ]; then
-            c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $INCLUDE_FLAGS -o build/vst3_mm.o "$VST3_MM" 2>&1 | tee build/vst3_mm_compile.log
+            c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $INCLUDE_FLAGS -arch ${{ matrix.cmake_arch }} -o build/vst3_mm.o "$VST3_MM" 2>&1 | tee build/vst3_mm_compile.log
             if [ ${PIPESTATUS[0]} != "0" ]; then
               echo "::error::VST3 .mm wrapper compilation failed"
               tail -30 build/vst3_mm_compile.log
@@ -214,7 +221,7 @@ jobs:
           AU_OBJ_FILES=""
 
           if [ -f "$AU_1" ]; then
-            c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $INCLUDE_FLAGS -o build/au_1.o "$AU_1" 2>&1 | tee build/au_1_compile.log
+            c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $INCLUDE_FLAGS -arch ${{ matrix.cmake_arch }} -o build/au_1.o "$AU_1" 2>&1 | tee build/au_1_compile.log
             if [ ${PIPESTATUS[0]} != "0" ]; then
               echo "::error::AU_1 wrapper compilation failed"
               tail -30 build/au_1_compile.log
@@ -225,7 +232,7 @@ jobs:
           fi
 
           if [ -f "$AU_2" ]; then
-            c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $INCLUDE_FLAGS -o build/au_2.o "$AU_2" 2>&1 | tee build/au_2_compile.log
+            c++ -c -std=c++17 -x objective-c++ $SDK_FLAG $INCLUDE_FLAGS -arch ${{ matrix.cmake_arch }} -o build/au_2.o "$AU_2" 2>&1 | tee build/au_2_compile.log
             if [ ${PIPESTATUS[0]} != "0" ]; then
               echo "::error::AU_2 wrapper compilation failed"
               tail -30 build/au_2_compile.log
@@ -266,7 +273,7 @@ jobs:
           echo "Linking VST3 bundle..."
           c++ -bundle -o "$VST3_DIR/Contents/MacOS/LianCore" \
             -Wl,-all_load "$STATIC_LIB" $VST3_OBJ_FILES \
-            $SDK_FLAG $FRAMEWORKS -stdlib=libc++ -lobjc \
+            $SDK_FLAG -arch ${{ matrix.cmake_arch }} $FRAMEWORKS -stdlib=libc++ -lobjc \
             2>&1 | tee build/vst3_link.log
           LINK_EXIT=${PIPESTATUS[0]}
           if [ "$LINK_EXIT" != "0" ]; then
@@ -321,7 +328,7 @@ jobs:
             echo "Linking AU bundle..."
             c++ -bundle -o "$AU_DIR/Contents/MacOS/LianCore" \
               -Wl,-all_load "$STATIC_LIB" $AU_OBJ_FILES \
-              $SDK_FLAG $FRAMEWORKS -stdlib=libc++ -lobjc \
+              $SDK_FLAG -arch ${{ matrix.cmake_arch }} $FRAMEWORKS -stdlib=libc++ -lobjc \
               2>&1 | tee build/au_link.log
             LINK_EXIT=${PIPESTATUS[0]}
             if [ "$LINK_EXIT" != "0" ]; then
@@ -336,8 +343,10 @@ jobs:
           fi
 
           echo "=== Bundle Verification ==="
+          echo "VST3 bundle contents:"
           find "$VST3_DIR" -type f | sort
           if [ -n "$AU_OBJ_FILES" ]; then
+            echo "AU bundle contents:"
             find "$AU_DIR" -type f | sort
           fi
           echo "=== All artifacts in LianCore_artefacts ==="
@@ -345,16 +354,16 @@ jobs:
 
       - name: Build Tests
         run: |
-          cmake --build build --target LianCoreTests --parallel $(sysctl -n hw.logicalcpu)
+          cmake --build build --config Release --target LianCoreTests --parallel $(sysctl -n hw.logicalcpu)
 
       - name: Run Unit Tests
         run: |
           echo "=== Running tests ==="
           if [ "${{ matrix.arch }}" = "x86_64" ]; then
             echo "Running x86_64 tests under Rosetta 2"
-            arch -x86_64 ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
+            arch -x86_64 ./build/tests/Release/LianCoreTests -s -r compact || TEST_EXIT=$?
           else
-            ./build/tests/LianCoreTests -s -r compact || TEST_EXIT=$?
+            ./build/tests/Release/LianCoreTests -s -r compact || TEST_EXIT=$?
           fi
           echo "Test exit code: ${TEST_EXIT:-0}"
           if [ "${TEST_EXIT:-0}" = "0" ] || [ "${TEST_EXIT:-0}" = "133" ] || [ "${TEST_EXIT:-0}" = "132" ]; then
