@@ -64,6 +64,13 @@ include(cmake/FindAAX.cmake)
 # =============================================================================
 # 插件配置
 # =============================================================================
+# 插件格式 (macOS CI 无 AAX SDK，排除 AAX；Windows 保留 AAX)
+if(APPLE)
+    set(LIANCORE_PLUGIN_FORMATS "VST3 AU")
+else()
+    set(LIANCORE_PLUGIN_FORMATS "VST3 AAX AU")
+endif()
+
 juce_add_plugin(LianCore
     # 插件元数据
     COMPANY_NAME "连毅霖"
@@ -73,7 +80,7 @@ juce_add_plugin(LianCore
     BUNDLE_ID "com.liancore.audio.liancore"
 
     # 插件格式
-    FORMATS VST3 AAX AU
+    FORMATS ${LIANCORE_PLUGIN_FORMATS}
     VST3_CATEGORIES "Instrument|Synth"
 
     # 是否需要UI
