@@ -19,7 +19,7 @@ jobs:
             runner: macos-14
             cmake_arch: arm64
           - arch: x86_64
-            runner: macos-13
+            runner: macos-14
             cmake_arch: x86_64
 
     runs-on: ${{ matrix.runner }}
