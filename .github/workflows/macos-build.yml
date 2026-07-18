@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v11
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v12
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -104,7 +104,11 @@ jobs:
             exit $BUILD_EXIT
           fi
           echo "LianCore static library built successfully"
-          find build -name "libLianCore.a" -type f 2>/dev/null | head -5
+          echo "=== Searching for static library ==="
+          find build -name "libLianCore.a" -type f 2>/dev/null
+          find build -name "*.a" -type f 2>/dev/null | head -10
+          echo "=== Build artefacts directory ==="
+          find build/LianCore_artefacts -type f 2>/dev/null | head -20
 
       - name: Build Tests
         run: |
@@ -130,17 +134,16 @@ jobs:
           mkdir -p build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS
           mkdir -p build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/Resources
 
-          # Find the static library
-          STATIC_LIB=$(find build -name "libLianCore.a" -type f | head -1)
+          STATIC_LIB=$(find build -name "libLianCore.a" -type f 2>/dev/null | head -1)
           if [ -z "$STATIC_LIB" ]; then
-            echo "::error::Static library not found"
-            find build -name "*.a" -type f | head -10
+            echo "::error::Static library not found! Searching for any .a files..."
+            find build -name "*.a" -type f 2>/dev/null | head -10
+            echo "::error::Build artefact dir contents:"
+            find build/LianCore_artefacts -type f 2>/dev/null | head -20
             exit 1
           fi
-          echo "Static library: $STATIC_LIB"
+          echo "Static library: $STATIC_LIB ($(ls -la $STATIC_LIB | awk '{print $5}') bytes)"
 
-          # Find all object files from the static library build
-          # Create a shared library from the static library
           echo "Creating shared library from static library..."
           c++ -dynamiclib \
             -o build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore \
@@ -154,13 +157,21 @@ jobs:
             -framework CoreServices \
             -framework Foundation \
             -arch ${{ matrix.cmake_arch }} \
-            2>&1 | tail -20
+            2>&1 | tee build/vst3_link.log
+          LINK_EXIT=${PIPESTATUS[0]}
+          if [ "$LINK_EXIT" != "0" ]; then
+            echo "::error::VST3 link failed (exit code: $LINK_EXIT)"
+            tail -30 build/vst3_link.log
+            exit $LINK_EXIT
+          fi
 
           if [ -f "build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore" ]; then
             ls -la build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore
+            file build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore
             echo "VST3 binary created: OK"
           else
-            echo "::warning::VST3 binary creation may have failed"
+            echo "::error::VST3 binary file not created"
+            exit 1
           fi
 
           # Copy moduleinfo.json
@@ -168,15 +179,9 @@ jobs:
             cp build/LianCore_artefacts/JuceLibraryCode/moduleinfo.json \
               build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/Resources/
             echo "moduleinfo.json copied"
-          fi
-
-          # Copy or create Info.plist
-          if [ -f "build/LianCore_artefacts/JuceLibraryCode/Info-VST3.plist" ]; then
-            cp build/LianCore_artefacts/JuceLibraryCode/Info-VST3.plist \
-              build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/Info.plist
-            echo "Info.plist copied"
           else
-            echo "::warning::Info.plist not found"
+            echo "::warning::moduleinfo.json not found, searching..."
+            find build -name "moduleinfo.json" 2>/dev/null | head -5
           fi
 
       - name: Manual AU Bundle Creation
@@ -186,7 +191,7 @@ jobs:
           mkdir -p build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS
           mkdir -p build/LianCore_artefacts/Release/AU/LianCore.component/Contents/Resources
 
-          STATIC_LIB=$(find build -name "libLianCore.a" -type f | head -1)
+          STATIC_LIB=$(find build -name "libLianCore.a" -type f 2>/dev/null | head -1)
           if [ -z "$STATIC_LIB" ]; then
             echo "::error::Static library not found"
             exit 1
@@ -205,19 +210,21 @@ jobs:
             -framework CoreServices \
             -framework Foundation \
             -arch ${{ matrix.cmake_arch }} \
-            2>&1 | tail -20
+            2>&1 | tee build/au_link.log
+          LINK_EXIT=${PIPESTATUS[0]}
+          if [ "$LINK_EXIT" != "0" ]; then
+            echo "::error::AU link failed (exit code: $LINK_EXIT)"
+            tail -30 build/au_link.log
+            exit $LINK_EXIT
+          fi
 
           if [ -f "build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore" ]; then
             ls -la build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore
+            file build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore
             echo "AU binary created: OK"
           else
-            echo "::warning::AU binary creation may have failed"
-          fi
-
-          if [ -f "build/LianCore_artefacts/JuceLibraryCode/Info-AU.plist" ]; then
-            cp build/LianCore_artefacts/JuceLibraryCode/Info-AU.plist \
-              build/LianCore_artefacts/Release/AU/LianCore.component/Contents/Info.plist
-            echo "AU Info.plist copied"
+            echo "::error::AU binary file not created"
+            exit 1
           fi
 
       - name: Verify Build Artifacts
@@ -267,7 +274,6 @@ jobs:
           fi
           if [ "$HAS_BINARIES" = "false" ]; then
             echo "::error::No plugin binaries found! Aborting."
-            find build/LianCore_artefacts -type f 2>/dev/null | head -50
             exit 1
           fi
           mkdir -p dmg_staging
