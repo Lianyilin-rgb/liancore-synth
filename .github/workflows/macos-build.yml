@@ -100,7 +100,7 @@ jobs:
           FWKS="$FWKS -framework QuartzCore -framework Security -framework WebKit"
 
           # Write all .o file paths to a file, then use xargs with proper error handling
-          # Use 'set +o pipefail' to prevent premature exit, then check PIPESTATUS[1] (xargs)
+          # Use 'set +o pipefail' to prevent premature exit, then check PIPESTATUS[2] (xargs)
           find build -name "*.o" -type f 2>/dev/null > build/objs.txt
           OBJ_COUNT=$(wc -l < build/objs.txt | tr -d ' ')
           echo "Linking with $OBJ_COUNT .o files"
@@ -115,10 +115,10 @@ jobs:
           mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
           echo "Linking VST3..."
           # Use xargs with -0 for safe file handling, cat to tee for log capture
-          # PIPESTATUS[1] is xargs exit code, PIPESTATUS[2] is tee exit code
+          # PIPESTATUS[2] is xargs exit code (pipeline: cat|tr|xargs|tee)
           set +o pipefail  # Don't exit on pipe failure
           cat build/objs.txt | tr '\n' '\0' | xargs -0 c++ -bundle $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
-          XARGS_EXIT=${PIPESTATUS[1]}
+          XARGS_EXIT=${PIPESTATUS[2]}
           set -o pipefail  # Re-enable pipefail
           if [ "$XARGS_EXIT" != "0" ]; then
             echo "::error::VST3 link failed (exit code $XARGS_EXIT)"
@@ -138,7 +138,7 @@ jobs:
           echo "Linking AU..."
           set +o pipefail
           cat build/objs.txt | tr '\n' '\0' | xargs -0 c++ -bundle $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
-          XARGS_EXIT=${PIPESTATUS[1]}
+          XARGS_EXIT=${PIPESTATUS[2]}
           set -o pipefail
           if [ "$XARGS_EXIT" != "0" ]; then
             echo "::error::AU link failed (exit code $XARGS_EXIT)"
