@@ -105,6 +105,9 @@ private:
     // WebSocket消息服务器
     UIMessageServer uiServer_;
 
+    // CJK LookAndFeel: Windows 上使用 Microsoft YaHei 确保中文正常显示
+    std::unique_ptr<juce::LookAndFeel> cjkLookAndFeel_;
+
     // 处理Web UI消息
     void setupMessageHandlers();
 

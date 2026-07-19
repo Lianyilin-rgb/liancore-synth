@@ -13,6 +13,19 @@ namespace LianCore {
 static juce::String parseWebSocketMessage(juce::String& buffer);
 
 // =============================================================================
+// CJK LookAndFeel: 在 Windows 上使用 Microsoft YaHei 字体确保中文正常显示
+// 默认 JUCE LookAndFeel_V4 字体不含 CJK 字形，会导致中文乱码
+// =============================================================================
+class CJKLookAndFeel : public juce::LookAndFeel_V4 {
+public:
+    CJKLookAndFeel() {
+#if JUCE_WINDOWS
+        setDefaultSansSerifTypefaceName("Microsoft YaHei");
+#endif
+    }
+};
+
+// =============================================================================
 // UIMessageServer 实现
 // =============================================================================
 UIMessageServer::UIMessageServer()
@@ -192,29 +205,50 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     // 设置窗口大小 (Beta阶段扩大窗口)
     setSize(800, 560);
 
+    // =========================================================================
+    // CJK 字体配置: 在 Windows 上使用 "Microsoft YaHei" 确保中文字符正常显示
+    // 默认 JUCE 字体不含 CJK 字形，会导致中文乱码
+    // =========================================================================
+    juce::Font cjkFont(14.0f);
+    juce::Font cjkFontBold(14.0f, juce::Font::bold);
+    juce::Font cjkFontSmall(11.0f);
+    juce::Font cjkFontTiny(10.0f);
+
+#if JUCE_WINDOWS
+    // Windows: 使用 Microsoft YaHei (微软雅黑)，所有 Win10/11 系统自带
+    cjkFont.setTypefaceName("Microsoft YaHei");
+    cjkFontBold.setTypefaceName("Microsoft YaHei");
+    cjkFontSmall.setTypefaceName("Microsoft YaHei");
+    cjkFontTiny.setTypefaceName("Microsoft YaHei");
+#endif
+
+    // 设置 CJK LookAndFeel 确保按钮等控件中文正常显示
+    cjkLookAndFeel_ = std::make_unique<CJKLookAndFeel>();
+    setLookAndFeel(cjkLookAndFeel_.get());
+
     // 标题
     titleLabel_.setText("LianCore V3 Beta - AI合成器软音源", juce::dontSendNotification);
-    titleLabel_.setFont(juce::Font(16.0f, juce::Font::bold));
+    titleLabel_.setFont(cjkFontBold.withHeight(16.0f));
     titleLabel_.setJustificationType(juce::Justification::centred);
     titleLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF00cec9));
     addAndMakeVisible(titleLabel_);
 
     // 状态
     statusLabel_.setText("节点: 全合成引擎 | AI推理: ONNX Runtime | Web UI: 就绪", juce::dontSendNotification);
-    statusLabel_.setFont(juce::Font(11.0f));
+    statusLabel_.setFont(cjkFontSmall);
     statusLabel_.setJustificationType(juce::Justification::centred);
     statusLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF8888a0));
     addAndMakeVisible(statusLabel_);
 
     // CPU使用率
     cpuLabel_.setText("CPU: 0.0ms | 内存: 0MB", juce::dontSendNotification);
-    cpuLabel_.setFont(juce::Font(10.0f));
+    cpuLabel_.setFont(cjkFontTiny);
     cpuLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF555568));
     addAndMakeVisible(cpuLabel_);
 
     // WebSocket状态
     wsStatusLabel_.setText("WebSocket: 启动中...", juce::dontSendNotification);
-    wsStatusLabel_.setFont(juce::Font(10.0f));
+    wsStatusLabel_.setFont(cjkFontTiny);
     wsStatusLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF2ecc71));
     addAndMakeVisible(wsStatusLabel_);
 
@@ -376,6 +410,7 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
 PluginEditor::~PluginEditor() {
     stopTimer();
     uiServer_.stop();
+    setLookAndFeel(nullptr);  // 清理 CJK LookAndFeel
 }
 
 void PluginEditor::paint(juce::Graphics& g) {
