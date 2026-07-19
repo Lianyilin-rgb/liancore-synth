@@ -474,3 +474,20 @@ install(TARGETS LianCore
     BUNDLE DESTINATION .
     RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/VST3"
 )
+
+# =============================================================================
+# Windows: POST_BUILD 复制 Web UI 资源到 VST3 Bundle
+# 将 ui/ 目录下的所有文件复制到 VST3 bundle 的 Contents/Resources/ui/
+# 确保插件在 DAW 中加载时能访问 Web UI 界面资源
+# 使用 if(WIN32) 隔离，不影响 macOS 构建
+# =============================================================================
+if(WIN32)
+    add_custom_command(TARGET LianCore POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:LianCore>/../Resources/ui"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/ui"
+            "$<TARGET_FILE_DIR:LianCore>/../Resources/ui"
+        COMMENT "Copying Web UI resources to VST3 bundle"
+    )
+endif()
