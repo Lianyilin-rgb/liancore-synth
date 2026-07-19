@@ -116,7 +116,7 @@ jobs:
           VST3_DIR="build/LianCore_artefacts/Release/VST3/LianCore.vst3"
           mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
           echo "Linking VST3..."
-          c++ -bundle -Wl,-force_load build/libLianCore.a $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
+          c++ -bundle -Wl,-force_load,build/libLianCore.a $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
           if [ ${PIPESTATUS[0]} != "0" ]; then
             echo "::error::VST3 link failed"
             tail -30 build/vst3_link.log
@@ -128,7 +128,7 @@ jobs:
           AU_DIR="build/LianCore_artefacts/Release/AU/LianCore.component"
           mkdir -p "$AU_DIR/Contents/MacOS" "$AU_DIR/Contents/Resources"
           echo "Linking AU..."
-          c++ -bundle -Wl,-force_load build/libLianCore.a $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
+          c++ -bundle -Wl,-force_load,build/libLianCore.a $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
           if [ ${PIPESTATUS[0]} != "0" ]; then
             echo "::error::AU link failed"
             tail -30 build/au_link.log
