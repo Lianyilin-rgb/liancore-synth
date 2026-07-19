@@ -99,26 +99,22 @@ jobs:
           FWKS="$FWKS -framework Foundation -framework IOKit -framework Metal -framework MetalKit"
           FWKS="$FWKS -framework QuartzCore -framework Security -framework WebKit"
 
-          # Debug: list .o files count and show build tree
-          OBJ_COUNT=$(find build -name "*.o" -type f -print0 2>/dev/null | tr -dc '\0' | wc -c | tr -d ' ')
-          echo "Total .o files: $OBJ_COUNT"
+          # Write all .o file paths to a response file for clang
+          # Clang supports @file syntax to load arguments from a file (avoids shell arg length limits)
+          find build -name "*.o" -type f 2>/dev/null > build/objs.rsp
+          OBJ_COUNT=$(wc -l < build/objs.rsp | tr -d ' ')
+          echo "Linking with $OBJ_COUNT .o files"
           if [ "$OBJ_COUNT" -eq 0 ]; then
             echo "::error::No .o files!"
             find build -maxdepth 3 -type d 2>/dev/null | head -30
             exit 1
           fi
-          find build -name "*.o" -type f 2>/dev/null | head -5
-
-          # Directly link all .o files into bundle (skip static library to avoid -force_load issues)
-          # Use command substitution to ensure all .o files go to a SINGLE linker invocation
-          # (xargs may split into multiple invocations if arg list exceeds 128KB, causing silent failures)
-          ALL_OBJS=$(find build -name "*.o" -type f 2>/dev/null)
-          echo "Linking with $(echo "$ALL_OBJS" | wc -l | tr -d ' ') .o files"
+          head -3 build/objs.rsp
 
           VST3_DIR="build/LianCore_artefacts/Release/VST3/LianCore.vst3"
           mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
           echo "Linking VST3..."
-          c++ -bundle $ALL_OBJS $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" > build/vst3_link.log 2>&1
+          c++ -bundle @build/objs.rsp $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" > build/vst3_link.log 2>&1
           LINK_EXIT=$?
           cat build/vst3_link.log
           if [ "$LINK_EXIT" != "0" ]; then
@@ -135,7 +131,7 @@ jobs:
           AU_DIR="build/LianCore_artefacts/Release/AU/LianCore.component"
           mkdir -p "$AU_DIR/Contents/MacOS" "$AU_DIR/Contents/Resources"
           echo "Linking AU..."
-          c++ -bundle $ALL_OBJS $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" > build/au_link.log 2>&1
+          c++ -bundle @build/objs.rsp $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" > build/au_link.log 2>&1
           LINK_EXIT=$?
           cat build/au_link.log
           if [ "$LINK_EXIT" != "0" ]; then
