@@ -175,6 +175,9 @@ private:
     double currentCpuUsage_ = 0.0;
     int currentProgram_ = 0;
 
+    // 延音踏板状态 (CC64) - 用于无 MIDI 输入时静音判断
+    bool sustainPedalHeld_ = false;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };
 

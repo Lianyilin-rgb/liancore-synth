@@ -3,6 +3,7 @@
 // =============================================================================
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <exception>
 
 namespace LianCore {
 
@@ -12,14 +13,29 @@ PluginProcessor::PluginProcessor()
         .withOutput("Output", juce::AudioChannelSet::stereo(), true))
     , parameterTree_(*this)
 {
-    // 初始化默认音频图
-    initializeDefaultGraph();
+    // =========================================================================
+    // 构造函数容错保护: 初始化过程中的任何异常都不应导致插件崩溃
+    // 如果 AI 模型或预设库加载失败，插件仍可加载但输出静音
+    // =========================================================================
+    try {
+        // 初始化默认音频图
+        initializeDefaultGraph();
 
-    // Gamma: 自动加载 ONNX AI 模型
-    initializeAI();
+        // Gamma: 自动加载 ONNX AI 模型
+        // 注意: AI 模型加载失败不会导致崩溃，仅输出警告日志
+        initializeAI();
 
-    // 启用 MPE 支持 (Zone 1: 主通道 1, 成员通道 2-15)
-    enableMPE(true);
+        // 启用 MPE 支持 (Zone 1: 主通道 1, 成员通道 2-15)
+        enableMPE(true);
+    } catch (const std::exception& e) {
+        // 初始化失败时输出静音: processBlock 中无 MIDI 检测逻辑确保
+        // 不输出默认正弦波/噪音
+        DBG("LianCore: PluginProcessor initialization failed: " << e.what());
+        DBG("  Plugin will load in silent mode (no default sine wave output)");
+    } catch (...) {
+        DBG("LianCore: PluginProcessor initialization failed with unknown error");
+        DBG("  Plugin will load in silent mode (no default sine wave output)");
+    }
 }
 
 PluginProcessor::~PluginProcessor() = default;
@@ -139,6 +155,29 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 
     // MPE: 处理 MIDI 输入, 提取逐音符 MPE 数据
     mpeProcessor_.processMidiBuffer(midi);
+
+    // =========================================================================
+    // 延音踏板检测 (CC64) - 遍历 MIDI 缓冲区查找 CC64 控制变更
+    // =========================================================================
+    for (const auto metadata : midi) {
+        auto msg = metadata.getMessage();
+        if (msg.isController() && msg.getControllerNumber() == 64) {
+            sustainPedalHeld_ = (msg.getControllerValue() >= 64);
+        }
+    }
+
+    // =========================================================================
+    // 无 MIDI 输入时输出静音保护
+    // 检查条件: 没有活跃音符 且 延音踏板未踩下
+    // 避免合成引擎在无 MIDI 输入时输出默认正弦波/噪音
+    // =========================================================================
+    if (mpeProcessor_.getNumActiveNotes() == 0 && !sustainPedalHeld_) {
+        // 所有输出声道清零
+        for (int ch = 0; ch < getTotalNumOutputChannels(); ++ch) {
+            buffer.clear(ch, 0, buffer.getNumSamples());
+        }
+        return;
+    }
 
     // 清除输出缓冲区
     for (int ch = 0; ch < getTotalNumOutputChannels(); ++ch) {
