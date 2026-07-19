@@ -99,26 +99,31 @@ jobs:
           FWKS="$FWKS -framework Foundation -framework IOKit -framework Metal -framework MetalKit"
           FWKS="$FWKS -framework QuartzCore -framework Security -framework WebKit"
 
-          # Write all .o file paths to a response file for clang
-          # Clang supports @file syntax to load arguments from a file (avoids shell arg length limits)
-          find build -name "*.o" -type f 2>/dev/null > build/objs.rsp
-          OBJ_COUNT=$(wc -l < build/objs.rsp | tr -d ' ')
+          # Write all .o file paths to a file, then use xargs with proper error handling
+          # Use 'set +o pipefail' to prevent premature exit, then check PIPESTATUS[1] (xargs)
+          find build -name "*.o" -type f 2>/dev/null > build/objs.txt
+          OBJ_COUNT=$(wc -l < build/objs.txt | tr -d ' ')
           echo "Linking with $OBJ_COUNT .o files"
           if [ "$OBJ_COUNT" -eq 0 ]; then
             echo "::error::No .o files!"
             find build -maxdepth 3 -type d 2>/dev/null | head -30
             exit 1
           fi
-          head -3 build/objs.rsp
+          head -3 build/objs.txt
 
           VST3_DIR="build/LianCore_artefacts/Release/VST3/LianCore.vst3"
           mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
           echo "Linking VST3..."
-          c++ -bundle @build/objs.rsp $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" > build/vst3_link.log 2>&1
-          LINK_EXIT=$?
-          cat build/vst3_link.log
-          if [ "$LINK_EXIT" != "0" ]; then
-            echo "::error::VST3 link failed (exit code $LINK_EXIT)"
+          # Use xargs with -0 for safe file handling, cat to tee for log capture
+          # PIPESTATUS[1] is xargs exit code, PIPESTATUS[2] is tee exit code
+          set +o pipefail  # Don't exit on pipe failure
+          cat build/objs.txt | tr '\n' '\0' | xargs -0 c++ -bundle $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
+          XARGS_EXIT=${PIPESTATUS[1]}
+          set -o pipefail  # Re-enable pipefail
+          if [ "$XARGS_EXIT" != "0" ]; then
+            echo "::error::VST3 link failed (exit code $XARGS_EXIT)"
+            echo "=== Last 50 lines of link log ==="
+            tail -50 build/vst3_link.log
             echo "=== Undefined symbols ==="
             grep -i 'undefined' build/vst3_link.log | head -20 || echo "(no undefined symbol errors found)"
             echo "=== All errors ==="
@@ -131,11 +136,14 @@ jobs:
           AU_DIR="build/LianCore_artefacts/Release/AU/LianCore.component"
           mkdir -p "$AU_DIR/Contents/MacOS" "$AU_DIR/Contents/Resources"
           echo "Linking AU..."
-          c++ -bundle @build/objs.rsp $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" > build/au_link.log 2>&1
-          LINK_EXIT=$?
-          cat build/au_link.log
-          if [ "$LINK_EXIT" != "0" ]; then
-            echo "::error::AU link failed (exit code $LINK_EXIT)"
+          set +o pipefail
+          cat build/objs.txt | tr '\n' '\0' | xargs -0 c++ -bundle $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
+          XARGS_EXIT=${PIPESTATUS[1]}
+          set -o pipefail
+          if [ "$XARGS_EXIT" != "0" ]; then
+            echo "::error::AU link failed (exit code $XARGS_EXIT)"
+            echo "=== Last 50 lines of link log ==="
+            tail -50 build/au_link.log
             echo "=== Undefined symbols ==="
             grep -i 'undefined' build/au_link.log | head -20 || echo "(no undefined symbol errors found)"
             exit 1
