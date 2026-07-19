@@ -186,18 +186,29 @@ jobs:
       - name: Package DMG (arm64)
         if: matrix.arch == 'arm64'
         run: |
+          set +e  # Disable immediate exit on error for debugging
           VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
           AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
-          echo "=== Debug: listing artefact tree ==="
-          find build/LianCore_artefacts -type f 2>/dev/null | head -20
+          echo "=== Debug: artefact tree ==="
+          ls -laR build/LianCore_artefacts/ 2>/dev/null | head -30 || echo "(artefact dir not found)"
           echo "=== Checking binaries ==="
           HAS_BIN=false
-          [ -f "$VST3_BIN" ] && echo "VST3: $(ls -lh $VST3_BIN)" && HAS_BIN=true
-          [ -f "$AU_BIN" ] && echo "AU: $(ls -lh $AU_BIN)" && HAS_BIN=true
+          if [ -f "$VST3_BIN" ]; then
+            echo "VST3: $(ls -lh $VST3_BIN)"
+            file "$VST3_BIN" 2>/dev/null
+            HAS_BIN=true
+          else
+            echo "VST3 binary NOT found at: $VST3_BIN"
+          fi
+          if [ -f "$AU_BIN" ]; then
+            echo "AU: $(ls -lh $AU_BIN)"
+            file "$AU_BIN" 2>/dev/null
+            HAS_BIN=true
+          else
+            echo "AU binary NOT found at: $AU_BIN"
+          fi
           if [ "$HAS_BIN" = "false" ]; then
             echo "::error::No binaries for DMG!"
-            echo "=== Full artefact tree ==="
-            find build/LianCore_artefacts -type f 2>/dev/null
             exit 1
           fi
           mkdir -p dmg_staging
