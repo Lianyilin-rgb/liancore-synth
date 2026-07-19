@@ -241,6 +241,54 @@ jobs:
           mkdir -p dmg_staging
           [ -d "build/LianCore_artefacts/Release/VST3/LianCore.vst3" ] && cp -R build/LianCore_artefacts/Release/VST3/LianCore.vst3 dmg_staging/
           [ -d "build/LianCore_artefacts/Release/AU/LianCore.component" ] && cp -R build/LianCore_artefacts/Release/AU/LianCore.component dmg_staging/
+
+          # =========================================================================
+          # 复制资源文件到 DMG: 预设库、波表库、AI 模型
+          # 使用安全复制模式 (文件存在才复制), 避免 CI 环境中文件缺失导致失败
+          # =========================================================================
+          echo "=== Copying resources to DMG staging ==="
+          mkdir -p dmg_staging/Resources/Wavetables
+          mkdir -p dmg_staging/Resources/Models
+
+          # 预设库主文件 (百万级, 3.67 GB)
+          if [ -f "data/preset_library_1M.db" ]; then
+            cp data/preset_library_1M.db dmg_staging/Resources/
+            echo "  preset_library_1M.db copied ($(ls -lh data/preset_library_1M.db | awk '{print $5}'))"
+          else
+            echo "  preset_library_1M.db NOT FOUND in data/ - skipping"
+          fi
+
+          # 工厂预设 (378 MB, 100k 预设)
+          if [ -f "data/factory_presets.db" ]; then
+            cp data/factory_presets.db dmg_staging/Resources/
+            echo "  factory_presets.db copied ($(ls -lh data/factory_presets.db | awk '{print $5}'))"
+          else
+            echo "  factory_presets.db NOT FOUND in data/ - skipping"
+          fi
+
+          # 波表库 (100 个工厂波表, ~100 MB)
+          if [ -d "data/factory_wavetables" ] && [ "$(ls data/factory_wavetables/*.wav 2>/dev/null | wc -l)" -gt 0 ]; then
+            cp -r data/factory_wavetables/*.wav dmg_staging/Resources/Wavetables/
+            WT_COUNT=$(ls dmg_staging/Resources/Wavetables/*.wav 2>/dev/null | wc -l | tr -d ' ')
+            echo "  Wavetables copied: $WT_COUNT files"
+          else
+            echo "  factory_wavetables/ NOT FOUND or empty - skipping"
+          fi
+
+          # AI 模型 (5 个 ONNX 模型, ~4.5 MB)
+          if ls models/*.onnx 1>/dev/null 2>&1; then
+            cp models/*.onnx dmg_staging/Resources/Models/
+            MODEL_COUNT=$(ls dmg_staging/Resources/Models/*.onnx 2>/dev/null | wc -l | tr -d ' ')
+            echo "  AI models copied: $MODEL_COUNT files"
+          else
+            echo "  ONNX models NOT FOUND in models/ - skipping"
+          fi
+
+          echo "=== DMG staging contents ==="
+          find dmg_staging -type f | head -30
+          DMG_SRC_SIZE=$(du -sh dmg_staging | awk '{print $1}')
+          echo "  DMG source size: $DMG_SRC_SIZE"
+
           hdiutil create -volname "LianCore V3" -srcfolder dmg_staging -ov -format UDZO LianCoreV3-macOS.dmg
           DMG_SIZE=$(stat -f%z LianCoreV3-macOS.dmg 2>/dev/null || echo "0")
           echo "DMG: $(ls -lh LianCoreV3-macOS.dmg)"
