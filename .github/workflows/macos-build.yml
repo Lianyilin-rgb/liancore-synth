@@ -89,15 +89,17 @@ jobs:
 
       - name: Create Static Library
         run: |
-          OBJ_COUNT=$(find build -name "*.o" -type f 2>/dev/null | wc -l | tr -d ' ')
+          OBJ_COUNT=$(find build -name "*.o" -type f -print0 2>/dev/null | tr -dc '\0' | wc -c | tr -d ' ')
           echo "Total .o files: $OBJ_COUNT"
           if [ "$OBJ_COUNT" -eq 0 ]; then
             echo "::error::No .o files!"
             find build -maxdepth 3 -type d 2>/dev/null | head -30
             exit 1
           fi
-          find build -name "*.o" -type f 2>/dev/null | xargs ar rcs build/libLianCore.a 2>&1
-          echo "Static lib: $(ls -lh build/libLianCore.a)"
+          find build -name "*.o" -type f 2>/dev/null | head -5
+          # Use libtool -static (macOS native) for reliable static library creation
+          find build -name "*.o" -type f -print0 2>/dev/null | xargs -0 libtool -static -o build/libLianCore.a 2>&1
+          echo "Static lib: $(ls -lh build/libLianCore.a 2>/dev/null || echo 'NOT FOUND')"
 
       - name: Create Plugin Bundles
         run: |
