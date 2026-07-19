@@ -87,20 +87,6 @@ jobs:
           echo "=== .o count ==="
           find build -name "*.o" -type f 2>/dev/null | wc -l
 
-      - name: Create Static Library
-        run: |
-          OBJ_COUNT=$(find build -name "*.o" -type f -print0 2>/dev/null | tr -dc '\0' | wc -c | tr -d ' ')
-          echo "Total .o files: $OBJ_COUNT"
-          if [ "$OBJ_COUNT" -eq 0 ]; then
-            echo "::error::No .o files!"
-            find build -maxdepth 3 -type d 2>/dev/null | head -30
-            exit 1
-          fi
-          find build -name "*.o" -type f 2>/dev/null | head -5
-          # Use libtool -static (macOS native) for reliable static library creation
-          find build -name "*.o" -type f -print0 2>/dev/null | xargs -0 libtool -static -o build/libLianCore.a 2>&1
-          echo "Static lib: $(ls -lh build/libLianCore.a 2>/dev/null || echo 'NOT FOUND')"
-
       - name: Create Plugin Bundles
         run: |
           SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || echo "")
@@ -113,13 +99,30 @@ jobs:
           FWKS="$FWKS -framework Foundation -framework IOKit -framework Metal -framework MetalKit"
           FWKS="$FWKS -framework QuartzCore -framework Security -framework WebKit"
 
+          # Debug: list .o files count and show build tree
+          OBJ_COUNT=$(find build -name "*.o" -type f -print0 2>/dev/null | tr -dc '\0' | wc -c | tr -d ' ')
+          echo "Total .o files: $OBJ_COUNT"
+          if [ "$OBJ_COUNT" -eq 0 ]; then
+            echo "::error::No .o files!"
+            find build -maxdepth 3 -type d 2>/dev/null | head -30
+            exit 1
+          fi
+          find build -name "*.o" -type f 2>/dev/null | head -5
+
+          # Directly link all .o files into bundle (skip static library to avoid -force_load issues)
+          # This is the most reliable approach for macOS plugin bundles
           VST3_DIR="build/LianCore_artefacts/Release/VST3/LianCore.vst3"
           mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
-          echo "Linking VST3..."
-          c++ -bundle -Wl,-force_load,build/libLianCore.a $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
+          echo "Linking VST3 ($OBJ_COUNT .o files)..."
+          find build -name "*.o" -type f -print0 2>/dev/null | xargs -0 c++ -bundle $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
           if [ ${PIPESTATUS[0]} != "0" ]; then
-            echo "::error::VST3 link failed"
-            tail -30 build/vst3_link.log
+            echo "::error::VST3 link failed (exit code ${PIPESTATUS[0]})"
+            echo "=== Last 50 lines of link log ==="
+            tail -50 build/vst3_link.log
+            echo "=== Undefined symbols ==="
+            grep -i 'undefined' build/vst3_link.log | head -20 || echo "(no undefined symbol errors found)"
+            echo "=== All errors ==="
+            grep -i 'error' build/vst3_link.log | head -20 || echo "(no error lines found)"
             exit 1
           fi
           echo "VST3: $(ls -lh $VST3_DIR/Contents/MacOS/LianCore)"
@@ -128,10 +131,13 @@ jobs:
           AU_DIR="build/LianCore_artefacts/Release/AU/LianCore.component"
           mkdir -p "$AU_DIR/Contents/MacOS" "$AU_DIR/Contents/Resources"
           echo "Linking AU..."
-          c++ -bundle -Wl,-force_load,build/libLianCore.a $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
+          find build -name "*.o" -type f -print0 2>/dev/null | xargs -0 c++ -bundle $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
           if [ ${PIPESTATUS[0]} != "0" ]; then
-            echo "::error::AU link failed"
-            tail -30 build/au_link.log
+            echo "::error::AU link failed (exit code ${PIPESTATUS[0]})"
+            echo "=== Last 50 lines of link log ==="
+            tail -50 build/au_link.log
+            echo "=== Undefined symbols ==="
+            grep -i 'undefined' build/au_link.log | head -20 || echo "(no undefined symbol errors found)"
             exit 1
           fi
           echo "AU: $(ls -lh $AU_DIR/Contents/MacOS/LianCore)"
