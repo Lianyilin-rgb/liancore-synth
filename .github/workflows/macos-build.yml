@@ -87,6 +87,15 @@ jobs:
           echo "=== .o count ==="
           find build -name "*.o" -type f 2>/dev/null | wc -l
 
+      - name: List CMake Targets
+        run: |
+          echo "=== Available CMake targets ==="
+          cmake --build build --target help 2>&1 | head -50 || echo "(target help failed)"
+          echo "=== Looking for plugin binaries ==="
+          find build -name "LianCore*" -type f 2>/dev/null | head -20 || echo "(none found)"
+          echo "=== Directory structure ==="
+          find build -maxdepth 2 -type d 2>/dev/null | sort | head -30
+
       - name: Create Plugin Bundles
         run: |
           SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || echo "")
@@ -99,20 +108,25 @@ jobs:
           FWKS="$FWKS -framework Foundation -framework IOKit -framework Metal -framework MetalKit"
           FWKS="$FWKS -framework QuartzCore -framework Security -framework WebKit"
 
-          # Collect all .o files
-          find build -name "*.o" -type f 2>/dev/null > build/objs.txt
+          # Exclude test .o files - only collect LianCore plugin .o files
+          find build -path "*/LianCore.dir/*" -name "*.o" -type f 2>/dev/null > build/objs.txt
+          # Also include any non-test .o files from the build root
+          find build -maxdepth 1 -name "*.o" -type f 2>/dev/null >> build/objs.txt
           OBJ_COUNT=$(wc -l < build/objs.txt | tr -d ' ')
-          echo "Linking with $OBJ_COUNT .o files"
+          echo "Linking with $OBJ_COUNT .o files (LianCore.dir only, excluding tests)"
           if [ "$OBJ_COUNT" -eq 0 ]; then
-            echo "::error::No .o files!"
-            find build -maxdepth 3 -type d 2>/dev/null | head -30
+            echo "::error::No .o files in LianCore.dir!"
+            echo "=== All .o files ==="
+            find build -name "*.o" -type f 2>/dev/null | head -20
+            echo "=== Directory structure ==="
+            find build -maxdepth 3 -type d 2>/dev/null | sort | head -30
             exit 1
           fi
-          echo "First 3 .o files:"
-          head -3 build/objs.txt
+          echo "Sample .o files:"
+          head -5 build/objs.txt
+          echo "Checking for test files in objs.txt:"
+          grep -i "test" build/objs.txt | head -5 || echo "(no test files found)"
 
-          # Use @response_file approach (avoids xargs argument splitting issues)
-          # Build linker command with response file for object files
           VST3_DIR="build/LianCore_artefacts/Release/VST3/LianCore.vst3"
           mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
           echo "Linking VST3..."
@@ -124,6 +138,8 @@ jobs:
             tail -80 build/vst3_link.log
             echo "=== Undefined symbols ==="
             grep -i 'undefined' build/vst3_link.log | head -30 || echo "(no undefined symbol errors found)"
+            echo "=== Duplicate symbols ==="
+            grep -i 'duplicate' build/vst3_link.log | head -20 || echo "(no duplicate symbols found)"
             echo "=== All errors ==="
             grep -i 'error' build/vst3_link.log | head -30 || echo "(no error lines found)"
             echo "=== Fatal ==="
@@ -140,10 +156,8 @@ jobs:
           LINK_EXIT=${PIPESTATUS[0]}
           if [ "$LINK_EXIT" != "0" ]; then
             echo "::error::AU link failed (exit code $LINK_EXIT)"
-            echo "=== Last 80 lines of link log ==="
             tail -80 build/au_link.log
-            echo "=== Undefined symbols ==="
-            grep -i 'undefined' build/au_link.log | head -30 || echo "(no undefined symbol errors found)"
+            grep -i 'undefined' build/au_link.log | head -30 || echo "(no undefined symbols found)"
             exit 1
           fi
           echo "AU: $(ls -lh $AU_DIR/Contents/MacOS/LianCore)"
