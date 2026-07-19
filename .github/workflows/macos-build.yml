@@ -54,7 +54,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: JUCE
-          key: juce-8.0.14-osx-${{ matrix.arch }}-v20
+          key: juce-8.0.14-osx-${{ matrix.arch }}-v21
 
       - name: Download JUCE 8.0.14
         if: steps.cache-juce.outputs.cache-hit != 'true'
@@ -135,53 +135,52 @@ jobs:
           echo "AU: $(ls -lh $AU_DIR/Contents/MacOS/LianCore)"
           file "$AU_DIR/Contents/MacOS/LianCore" 2>/dev/null
 
-      - name: Create Info.plist Files
-        run: |
-          python3 -c "
+          # Create Info.plist and PkgInfo using plistlib
+          python3 -c '
 import plistlib, os
-vst3_dir = 'build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents'
-au_dir = 'build/LianCore_artefacts/Release/AU/LianCore.component/Contents'
+vst3_dir = "build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents"
+au_dir = "build/LianCore_artefacts/Release/AU/LianCore.component/Contents"
 vst3_plist = {
-    'CFBundleDevelopmentRegion': 'English',
-    'CFBundleExecutable': 'LianCore',
-    'CFBundleIdentifier': 'com.lianyilin.liancore.vst3',
-    'CFBundleInfoDictionaryVersion': '6.0',
-    'CFBundleName': 'LianCore',
-    'CFBundlePackageType': 'BNDL',
-    'CFBundleShortVersionString': '3.0.0',
-    'CFBundleVersion': '3.0.0',
-    'NSHighResolutionCapable': True,
+    "CFBundleDevelopmentRegion": "English",
+    "CFBundleExecutable": "LianCore",
+    "CFBundleIdentifier": "com.lianyilin.liancore.vst3",
+    "CFBundleInfoDictionaryVersion": "6.0",
+    "CFBundleName": "LianCore",
+    "CFBundlePackageType": "BNDL",
+    "CFBundleShortVersionString": "3.0.0",
+    "CFBundleVersion": "3.0.0",
+    "NSHighResolutionCapable": True,
 }
 au_plist = {
-    'CFBundleDevelopmentRegion': 'English',
-    'CFBundleExecutable': 'LianCore',
-    'CFBundleIdentifier': 'com.lianyilin.liancore.au',
-    'CFBundleInfoDictionaryVersion': '6.0',
-    'CFBundleName': 'LianCore',
-    'CFBundlePackageType': 'BNDL',
-    'CFBundleShortVersionString': '3.0.0',
-    'CFBundleVersion': '3.0.0',
-    'NSHighResolutionCapable': True,
-    'AudioComponents': [{
-        'description': 'LianCore V3',
-        'factoryFunction': 'LianCoreAUFactory',
-        'manufacturer': 'LnCr',
-        'name': 'LianCore V3',
-        'subtype': 'LnCr',
-        'type': 'aumu',
-        'version': 196608,
+    "CFBundleDevelopmentRegion": "English",
+    "CFBundleExecutable": "LianCore",
+    "CFBundleIdentifier": "com.lianyilin.liancore.au",
+    "CFBundleInfoDictionaryVersion": "6.0",
+    "CFBundleName": "LianCore",
+    "CFBundlePackageType": "BNDL",
+    "CFBundleShortVersionString": "3.0.0",
+    "CFBundleVersion": "3.0.0",
+    "NSHighResolutionCapable": True,
+    "AudioComponents": [{
+        "description": "LianCore V3",
+        "factoryFunction": "LianCoreAUFactory",
+        "manufacturer": "LnCr",
+        "name": "LianCore V3",
+        "subtype": "LnCr",
+        "type": "aumu",
+        "version": 196608,
     }],
 }
-with open(os.path.join(vst3_dir, 'Info.plist'), 'wb') as f:
+with open(os.path.join(vst3_dir, "Info.plist"), "wb") as f:
     plistlib.dump(vst3_plist, f)
-with open(os.path.join(au_dir, 'Info.plist'), 'wb') as f:
+with open(os.path.join(au_dir, "Info.plist"), "wb") as f:
     plistlib.dump(au_plist, f)
-with open(os.path.join(vst3_dir, 'PkgInfo'), 'w') as f:
-    f.write('BNDL????')
-with open(os.path.join(au_dir, 'PkgInfo'), 'w') as f:
-    f.write('BNDL????')
-print('Info.plist and PkgInfo created')
-"
+with open(os.path.join(vst3_dir, "PkgInfo"), "w") as f:
+    f.write("BNDL????")
+with open(os.path.join(au_dir, "PkgInfo"), "w") as f:
+    f.write("BNDL????")
+print("Info.plist and PkgInfo created")
+'
 
       - name: Build Tests
         run: |
