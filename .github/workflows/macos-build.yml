@@ -110,15 +110,19 @@ jobs:
           find build -name "*.o" -type f 2>/dev/null | head -5
 
           # Directly link all .o files into bundle (skip static library to avoid -force_load issues)
-          # This is the most reliable approach for macOS plugin bundles
+          # Use command substitution to ensure all .o files go to a SINGLE linker invocation
+          # (xargs may split into multiple invocations if arg list exceeds 128KB, causing silent failures)
+          ALL_OBJS=$(find build -name "*.o" -type f 2>/dev/null)
+          echo "Linking with $(echo "$ALL_OBJS" | wc -l | tr -d ' ') .o files"
+
           VST3_DIR="build/LianCore_artefacts/Release/VST3/LianCore.vst3"
           mkdir -p "$VST3_DIR/Contents/MacOS" "$VST3_DIR/Contents/Resources"
-          echo "Linking VST3 ($OBJ_COUNT .o files)..."
-          find build -name "*.o" -type f -print0 2>/dev/null | xargs -0 c++ -bundle $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
-          if [ ${PIPESTATUS[0]} != "0" ]; then
-            echo "::error::VST3 link failed (exit code ${PIPESTATUS[0]})"
-            echo "=== Last 50 lines of link log ==="
-            tail -50 build/vst3_link.log
+          echo "Linking VST3..."
+          c++ -bundle $ALL_OBJS $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" > build/vst3_link.log 2>&1
+          LINK_EXIT=$?
+          cat build/vst3_link.log
+          if [ "$LINK_EXIT" != "0" ]; then
+            echo "::error::VST3 link failed (exit code $LINK_EXIT)"
             echo "=== Undefined symbols ==="
             grep -i 'undefined' build/vst3_link.log | head -20 || echo "(no undefined symbol errors found)"
             echo "=== All errors ==="
@@ -131,11 +135,11 @@ jobs:
           AU_DIR="build/LianCore_artefacts/Release/AU/LianCore.component"
           mkdir -p "$AU_DIR/Contents/MacOS" "$AU_DIR/Contents/Resources"
           echo "Linking AU..."
-          find build -name "*.o" -type f -print0 2>/dev/null | xargs -0 c++ -bundle $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
-          if [ ${PIPESTATUS[0]} != "0" ]; then
-            echo "::error::AU link failed (exit code ${PIPESTATUS[0]})"
-            echo "=== Last 50 lines of link log ==="
-            tail -50 build/au_link.log
+          c++ -bundle $ALL_OBJS $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" > build/au_link.log 2>&1
+          LINK_EXIT=$?
+          cat build/au_link.log
+          if [ "$LINK_EXIT" != "0" ]; then
+            echo "::error::AU link failed (exit code $LINK_EXIT)"
             echo "=== Undefined symbols ==="
             grep -i 'undefined' build/au_link.log | head -20 || echo "(no undefined symbol errors found)"
             exit 1
@@ -180,11 +184,16 @@ jobs:
         run: |
           VST3_BIN="build/LianCore_artefacts/Release/VST3/LianCore.vst3/Contents/MacOS/LianCore"
           AU_BIN="build/LianCore_artefacts/Release/AU/LianCore.component/Contents/MacOS/LianCore"
+          echo "=== Debug: listing artefact tree ==="
+          find build/LianCore_artefacts -type f 2>/dev/null | head -20
+          echo "=== Checking binaries ==="
           HAS_BIN=false
           [ -f "$VST3_BIN" ] && echo "VST3: $(ls -lh $VST3_BIN)" && HAS_BIN=true
           [ -f "$AU_BIN" ] && echo "AU: $(ls -lh $AU_BIN)" && HAS_BIN=true
           if [ "$HAS_BIN" = "false" ]; then
             echo "::error::No binaries for DMG!"
+            echo "=== Full artefact tree ==="
+            find build/LianCore_artefacts -type f 2>/dev/null
             exit 1
           fi
           mkdir -p dmg_staging
