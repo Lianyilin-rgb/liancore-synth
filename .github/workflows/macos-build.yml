@@ -137,7 +137,7 @@ jobs:
           fi
 
           echo "Linking VST3..."
-          c++ -v -bundle @build/objs.txt $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
+          c++ -v -bundle @build/objs.txt $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -Wl,-undefined,dynamic_lookup -o "$VST3_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/vst3_link.log
           LINK_EXIT=${PIPESTATUS[0]}
           if [ "$LINK_EXIT" != "0" ]; then
             echo "::error::VST3 link failed (exit code $LINK_EXIT)"
@@ -157,7 +157,7 @@ jobs:
           AU_DIR="build/LianCore_artefacts/Release/AU/LianCore.component"
           mkdir -p "$AU_DIR/Contents/MacOS" "$AU_DIR/Contents/Resources"
           echo "Linking AU..."
-          c++ -bundle @build/objs.txt $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
+          c++ -bundle @build/objs.txt $SDK_FLAG $ARCH_FLAG $FWKS -stdlib=libc++ -lobjc -Wl,-undefined,dynamic_lookup -o "$AU_DIR/Contents/MacOS/LianCore" 2>&1 | tee build/au_link.log
           LINK_EXIT=${PIPESTATUS[0]}
           if [ "$LINK_EXIT" != "0" ]; then
             echo "::error::AU link failed (exit code $LINK_EXIT)"
