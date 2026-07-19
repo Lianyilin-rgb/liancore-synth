@@ -176,6 +176,7 @@ juce_add_plugin(LianCore
         src/plugin/PluginProcessor.cpp
         src/plugin/PluginEditor.cpp
         src/plugin/SimpleHTTPServer.cpp
+        src/plugin/ResourceDownloader.cpp
         src/plugin/MPEProcessor.cpp
         src/plugin/MPERecorder.cpp
         src/plugin/OversamplingProcessor.cpp
@@ -358,6 +359,7 @@ target_sources(LianCore PRIVATE
     src/plugin/PluginProcessor.cpp
     src/plugin/PluginEditor.cpp
     src/plugin/SimpleHTTPServer.cpp
+    src/plugin/ResourceDownloader.cpp
     src/plugin/MPEProcessor.cpp
     src/plugin/MPERecorder.cpp
     src/plugin/OversamplingProcessor.cpp

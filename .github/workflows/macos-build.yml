@@ -210,6 +210,46 @@ jobs:
             build/LianCore_artefacts/Release/AU/
           retention-days: 7
 
+      - name: Download Resources from GitHub Release
+        if: matrix.arch == 'arm64'
+        run: |
+          echo "=== Downloading resources from GitHub Release v3.0.0 ==="
+          mkdir -p download_resources
+
+          # 使用 GitHub CLI 下载 Release 资产
+          # GITHUB_TOKEN 由 GitHub Actions 自动提供
+          ASSET_URL="https://api.github.com/repos/Lianyilin-rgb/liancore-synth/releases/tags/v3.0.0"
+
+          # 获取资产列表
+          echo "获取 Release 资产列表..."
+          ASSETS_JSON=$(curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$ASSET_URL" | jq '.assets')
+
+          ASSET_COUNT=$(echo "$ASSETS_JSON" | jq 'length')
+          echo "Release 资产数量: $ASSET_COUNT"
+
+          if [ "$ASSET_COUNT" -eq 0 ]; then
+            echo "::warning::Release 中没有资产，DMG 将不包含资源文件"
+            echo "::warning::请先运行 scripts/upload_release_assets.py 上传资源"
+          else
+            # 下载所有资产
+            echo "$ASSETS_JSON" | jq -r '.[] | "\(.name) \(.browser_download_url)"' | while read -r name url; do
+              echo "下载: $name"
+              curl -sL -o "download_resources/$name" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$url"
+              if [ -f "download_resources/$name" ]; then
+                SIZE=$(ls -lh "download_resources/$name" | awk '{print $5}')
+                echo "  完成: $SIZE"
+              else
+                echo "::warning::下载失败: $name"
+              fi
+            done
+          fi
+
+          echo "=== 下载完成 ==="
+          ls -la download_resources/ 2>/dev/null
+
       - name: Package DMG (arm64)
         if: matrix.arch == 'arm64'
         run: |
@@ -244,44 +284,60 @@ jobs:
 
           # =========================================================================
           # 复制资源文件到 DMG: 预设库、波表库、AI 模型
-          # 使用安全复制模式 (文件存在才复制), 避免 CI 环境中文件缺失导致失败
+          # 优先从 GitHub Release 下载的目录获取，其次从本地 data/ 和 models/ 目录
           # =========================================================================
           echo "=== Copying resources to DMG staging ==="
           mkdir -p dmg_staging/Resources/Wavetables
           mkdir -p dmg_staging/Resources/Models
 
+          # 辅助函数: 复制文件到 DMG staging，优先从 download_resources 获取
+          copy_resource() {
+            local asset_name="$1"
+            local dest_path="$2"
+            if [ -f "download_resources/$asset_name" ]; then
+              cp "download_resources/$asset_name" "$dest_path"
+              echo "  $asset_name copied from Release (size: $(ls -lh download_resources/$asset_name | awk '{print $5}'))"
+            elif [ -f "data/$asset_name" ]; then
+              cp "data/$asset_name" "$dest_path"
+              echo "  $asset_name copied from local data/ (size: $(ls -lh data/$asset_name | awk '{print $5}'))"
+            else
+              echo "  $asset_name NOT FOUND - skipping"
+            fi
+          }
+
           # 预设库主文件 (百万级, 3.67 GB)
-          if [ -f "data/preset_library_1M.db" ]; then
-            cp data/preset_library_1M.db dmg_staging/Resources/
-            echo "  preset_library_1M.db copied ($(ls -lh data/preset_library_1M.db | awk '{print $5}'))"
-          else
-            echo "  preset_library_1M.db NOT FOUND in data/ - skipping"
-          fi
+          copy_resource "preset_library_1M.db" "dmg_staging/Resources/preset_library_1M.db"
 
           # 工厂预设 (378 MB, 100k 预设)
-          if [ -f "data/factory_presets.db" ]; then
-            cp data/factory_presets.db dmg_staging/Resources/
-            echo "  factory_presets.db copied ($(ls -lh data/factory_presets.db | awk '{print $5}'))"
-          else
-            echo "  factory_presets.db NOT FOUND in data/ - skipping"
-          fi
+          copy_resource "factory_presets.db" "dmg_staging/Resources/factory_presets.db"
 
           # 波表库 (100 个工厂波表, ~100 MB)
-          if [ -d "data/factory_wavetables" ] && [ "$(ls data/factory_wavetables/*.wav 2>/dev/null | wc -l)" -gt 0 ]; then
+          # 优先从 download_resources 解压
+          if [ -f "download_resources/factory_wavetables.zip" ]; then
+            echo "从 Release 解压波表库..."
+            unzip -qo download_resources/factory_wavetables.zip -d dmg_staging/Resources/Wavetables/
+            WT_COUNT=$(ls dmg_staging/Resources/Wavetables/*.wav 2>/dev/null | wc -l | tr -d ' ')
+            echo "  Wavetables extracted: $WT_COUNT files"
+          elif [ -d "data/factory_wavetables" ] && [ "$(ls data/factory_wavetables/*.wav 2>/dev/null | wc -l)" -gt 0 ]; then
             cp -r data/factory_wavetables/*.wav dmg_staging/Resources/Wavetables/
             WT_COUNT=$(ls dmg_staging/Resources/Wavetables/*.wav 2>/dev/null | wc -l | tr -d ' ')
-            echo "  Wavetables copied: $WT_COUNT files"
+            echo "  Wavetables copied from local: $WT_COUNT files"
           else
-            echo "  factory_wavetables/ NOT FOUND or empty - skipping"
+            echo "  Wavetables NOT FOUND - skipping"
           fi
 
           # AI 模型 (5 个 ONNX 模型, ~4.5 MB)
-          if ls models/*.onnx 1>/dev/null 2>&1; then
+          # 从 download_resources 复制所有 .onnx 文件
+          if ls download_resources/*.onnx 1>/dev/null 2>&1; then
+            cp download_resources/*.onnx dmg_staging/Resources/Models/
+            MODEL_COUNT=$(ls dmg_staging/Resources/Models/*.onnx 2>/dev/null | wc -l | tr -d ' ')
+            echo "  AI models copied from Release: $MODEL_COUNT files"
+          elif ls models/*.onnx 1>/dev/null 2>&1; then
             cp models/*.onnx dmg_staging/Resources/Models/
             MODEL_COUNT=$(ls dmg_staging/Resources/Models/*.onnx 2>/dev/null | wc -l | tr -d ' ')
-            echo "  AI models copied: $MODEL_COUNT files"
+            echo "  AI models copied from local: $MODEL_COUNT files"
           else
-            echo "  ONNX models NOT FOUND in models/ - skipping"
+            echo "  ONNX models NOT FOUND - skipping"
           fi
 
           echo "=== DMG staging contents ==="

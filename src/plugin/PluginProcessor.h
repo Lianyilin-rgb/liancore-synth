@@ -14,6 +14,7 @@
 #include "MPEProcessor.h"
 #include "MPERecorder.h"
 #include "OversamplingProcessor.h"
+#include "ResourceDownloader.h"
 #include "../tuning/MicrotuningManager.h"
 #include "../synthesis/GranularPlayer.h"
 #include "../params/EffectsChainPreset.h"
@@ -131,6 +132,9 @@ public:
     /** 获取音色分析器引用 */
     AI::AudioTimbreAnalyzer& getTimbreAnalyzer() { return timbreAnalyzer_; }
 
+    /** 获取资源下载管理器引用 */
+    ResourceDownloader& getResourceDownloader() { return resourceDownloader_; }
+
 private:
     // 核心组件
     AudioGraphEngine audioGraph_;
@@ -163,6 +167,9 @@ private:
     AI::AudioTimbreAnalyzer timbreAnalyzer_;
     AI::AudioTimbreAnalyzer::AnalysisResult lastTimbreResult_;
     bool analyzing_ = false;
+
+    // 资源下载管理器 (首次运行自动从 GitHub Release 下载预设库/波表库/AI模型)
+    ResourceDownloader resourceDownloader_;
 
     // 合成链节点ID
     NodeId oscNodeId_;
