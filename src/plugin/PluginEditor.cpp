@@ -1,5 +1,7 @@
 // =============================================================================
-// LianCore - PluginEditor 实现 (Beta阶段: Web UI + WebSocket通信)
+// LianCore - PluginEditor 实现 (WebBrowserComponent + 内置HTTP服务器)
+// 嵌入 JUCE WebBrowserComponent 加载 Web UI，无需外部浏览器
+// WebSocket 端口 9001 用于 Web UI ↔ C++ 核心实时通信
 // =============================================================================
 #include "PluginEditor.h"
 #include "../ai/AIInferenceEngine.h"
@@ -11,19 +13,6 @@ namespace LianCore {
 
 // 前向声明
 static juce::String parseWebSocketMessage(juce::String& buffer);
-
-// =============================================================================
-// CJK LookAndFeel: 在 Windows 上使用 Microsoft YaHei 字体确保中文正常显示
-// 默认 JUCE LookAndFeel_V4 字体不含 CJK 字形，会导致中文乱码
-// =============================================================================
-class CJKLookAndFeel : public juce::LookAndFeel_V4 {
-public:
-    CJKLookAndFeel() {
-#if JUCE_WINDOWS
-        setDefaultSansSerifTypefaceName("Microsoft YaHei");
-#endif
-    }
-};
 
 // =============================================================================
 // UIMessageServer 实现
@@ -197,307 +186,115 @@ static juce::String parseWebSocketMessage(juce::String& buffer) {
 }
 
 // =============================================================================
+// Bundle UI 路径获取
+// 跨平台获取 VST3 Bundle 的 Contents/Resources/ui/ 目录
+// Windows: LianCore.vst3/Contents/x86_64-win/LianCore.vst3 → 向上两级 → Contents/Resources/ui/
+// macOS:   LianCore.vst3/Contents/MacOS/LianCore → 向上两级 → Contents/Resources/ui/
+// =============================================================================
+juce::File PluginEditor::getBundleUIPath() {
+    auto execFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    auto bundleRoot = execFile.getParentDirectory()  // Windows: x86_64-win/  macOS: MacOS/
+                              .getParentDirectory(); // Windows: Contents/   macOS: Contents/
+    auto uiDir = bundleRoot.getChildFile("Resources").getChildFile("ui");
+
+    DBG("[LianCore] Bundle UI 路径: " << uiDir.getFullPathName());
+    return uiDir;
+}
+
+// =============================================================================
 // PluginEditor 实现
 // =============================================================================
 PluginEditor::PluginEditor(PluginProcessor& processor)
     : AudioProcessorEditor(&processor)
     , processor_(processor) {
-    // 设置窗口大小 (Beta阶段扩大窗口)
+    // 设置窗口大小（Web UI 全屏显示）
     setSize(800, 560);
 
     // =========================================================================
-    // CJK 字体配置: 在 Windows 上使用 "Microsoft YaHei" 确保中文字符正常显示
-    // 默认 JUCE 字体不含 CJK 字形，会导致中文乱码
+    // 步骤1: 获取 VST3 Bundle 内的 UI 资源目录
     // =========================================================================
-    juce::Font cjkFont(14.0f);
-    juce::Font cjkFontBold(14.0f, juce::Font::bold);
-    juce::Font cjkFontSmall(11.0f);
-    juce::Font cjkFontTiny(10.0f);
+    auto uiDir = getBundleUIPath();
 
-#if JUCE_WINDOWS
-    // Windows: 使用 Microsoft YaHei (微软雅黑)，所有 Win10/11 系统自带
-    cjkFont.setTypefaceName("Microsoft YaHei");
-    cjkFontBold.setTypefaceName("Microsoft YaHei");
-    cjkFontSmall.setTypefaceName("Microsoft YaHei");
-    cjkFontTiny.setTypefaceName("Microsoft YaHei");
-#endif
+    // =========================================================================
+    // 步骤2: 启动内置 HTTP 静态文件服务器（端口 9000）
+    // 从 VST3 Bundle 的 Contents/Resources/ui/ 目录提供文件
+    // =========================================================================
+    httpServer_ = std::make_unique<SimpleHTTPServer>();
+    if (!httpServer_->start(9000, uiDir)) {
+        DBG("[LianCore] HTTP 服务器启动失败，Web UI 将不可用");
+    }
 
-    // 设置 CJK LookAndFeel 确保按钮等控件中文正常显示
-    cjkLookAndFeel_ = std::make_unique<CJKLookAndFeel>();
-    setLookAndFeel(cjkLookAndFeel_.get());
-
-    // 标题
-    titleLabel_.setText("LianCore V3 Beta - AI合成器软音源", juce::dontSendNotification);
-    titleLabel_.setFont(cjkFontBold.withHeight(16.0f));
-    titleLabel_.setJustificationType(juce::Justification::centred);
-    titleLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF00cec9));
-    addAndMakeVisible(titleLabel_);
-
-    // 状态
-    statusLabel_.setText("节点: 全合成引擎 | AI推理: ONNX Runtime | Web UI: 就绪", juce::dontSendNotification);
-    statusLabel_.setFont(cjkFontSmall);
-    statusLabel_.setJustificationType(juce::Justification::centred);
-    statusLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF8888a0));
-    addAndMakeVisible(statusLabel_);
-
-    // CPU使用率
-    cpuLabel_.setText("CPU: 0.0ms | 内存: 0MB", juce::dontSendNotification);
-    cpuLabel_.setFont(cjkFontTiny);
-    cpuLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF555568));
-    addAndMakeVisible(cpuLabel_);
-
-    // WebSocket状态
-    wsStatusLabel_.setText("WebSocket: 启动中...", juce::dontSendNotification);
-    wsStatusLabel_.setFont(cjkFontTiny);
-    wsStatusLabel_.setColour(juce::Label::textColourId, juce::Colour(0xFF2ecc71));
-    addAndMakeVisible(wsStatusLabel_);
-
-    // 打开Web UI按钮
-    openWebUIButton_.setButtonText("打开 Web UI");
-    openWebUIButton_.onClick = [this]() {
-        juce::URL("http://localhost:5173").launchInDefaultBrowser();
-    };
-    addAndMakeVisible(openWebUIButton_);
-
-    // AI测试按钮
-    aiTestButton_.setButtonText("AI 测试生成");
-    aiTestButton_.onClick = [this]() {
-        auto prompt = aiPromptInput_.getText();
-        if (prompt.isEmpty()) {
-            prompt = "明亮的电子合成器主音";
-        }
-
-        auto& ai = processor_.getAIEngine();
-        auto result = ai.generateParameters(prompt);
-        juce::String info = "AI生成: " + result.presetName + "\n";
-        info += "置信度: " + juce::String(result.confidence * 100, 0) + "%\n";
-        info += "参数数量: " + juce::String(result.parameters.size()) + "\n";
-        info += "模型: " + ai.getModelInfo() + "\n";
-        info += "推理时间: " + juce::String(ai.getLastInferenceTimeMs(), 2) + "ms";
-
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::MessageBoxIconType::InfoIcon,
-            "AI 推理结果",
-            info,
-            "确定"
-        );
-    };
-    addAndMakeVisible(aiTestButton_);
-
-    // 波表编辑器按钮 (P2-2)
-    wavetableEditorButton_.setButtonText("波表编辑器");
-    wavetableEditorButton_.onClick = [this]() {
-        wavetableEditorVisible_ = !wavetableEditorVisible_;
-        wavetableEditor_.setVisible(wavetableEditorVisible_);
-        if (wavetableEditorVisible_) {
-            wavetableEditorButton_.setButtonText("关闭波表编辑器");
-            // 绑定波表A到编辑器
-            auto& graph = processor_.getAudioGraph();
-            graph.forEachNode([this](AudioNode* node) {
-                if (node->getNodeType() == NodeType::WavetableOscillator) {
-                    auto* osc = dynamic_cast<WavetableOscillator*>(node);
-                    if (osc) {
-                        wavetableEditor_.setWavetableBank(&osc->getWavetableA());
-                    }
-                }
-            });
-            setSize(800, 800);
-        } else {
-            wavetableEditorButton_.setButtonText("波表编辑器");
-            setSize(800, 560);
-        }
-        resized();
-    };
-    addAndMakeVisible(wavetableEditorButton_);
-    addChildComponent(wavetableEditor_); // 默认隐藏
-
-    // MPE录制按钮 (P6-1)
-    mpeRecordingButton_.setButtonText("MPE 录制");
-    mpeRecordingButton_.onClick = [this]() {
-        mpeRecordingVisible_ = !mpeRecordingVisible_;
-        mpeRecordingUI_.setVisible(mpeRecordingVisible_);
-        if (mpeRecordingVisible_) {
-            mpeRecordingButton_.setButtonText("关闭 MPE 录制");
-            setSize(800, 800);
-        } else {
-            mpeRecordingButton_.setButtonText("MPE 录制");
-            setSize(800, 560);
-        }
-        resized();
-    };
-    addAndMakeVisible(mpeRecordingButton_);
-    addChildComponent(mpeRecordingUI_); // 默认隐藏
-
-    // 设置 MPE 录制UI的录制器/播放器引用
-    mpeRecordingUI_.setRecorderRef([this]() -> MPERecorder* {
-        return &processor_.getMPERecorder();
-    });
-    mpeRecordingUI_.setPlayerRef([this]() -> MPEPlayer* {
-        return &processor_.getMPEPlayer();
-    });
-    mpeRecordingUI_.startUIUpdates(15);
-
-    // 粒子合成引擎按钮 (P6-2)
-    granularEngineButton_.setButtonText("粒子合成");
-    granularEngineButton_.onClick = [this]() {
-        granularEngineVisible_ = !granularEngineVisible_;
-        granularEngineUI_.setVisible(granularEngineVisible_);
-        if (granularEngineVisible_) {
-            granularEngineButton_.setButtonText("关闭粒子合成");
-            setSize(800, 800);
-        } else {
-            granularEngineButton_.setButtonText("粒子合成");
-            setSize(800, 560);
-        }
-        resized();
-    };
-    addAndMakeVisible(granularEngineButton_);
-    addChildComponent(granularEngineUI_); // 默认隐藏
-
-    // 设置粒子合成UI的播放器引用
-    granularEngineUI_.setPlayerRef([this]() -> GranularPlayer* {
-        return &processor_.getGranularPlayer();
-    });
-
-    // 效果链预设按钮 (P6-3)
-    effectsChainButton_.setButtonText("效果链");
-    effectsChainButton_.onClick = [this]() {
-        effectsChainVisible_ = !effectsChainVisible_;
-        effectsChainUI_.setVisible(effectsChainVisible_);
-        if (effectsChainVisible_) {
-            effectsChainButton_.setButtonText("关闭效果链");
-            setSize(800, 800);
-        } else {
-            effectsChainButton_.setButtonText("效果链");
-            setSize(800, 560);
-        }
-        resized();
-    };
-    addAndMakeVisible(effectsChainButton_);
-    addChildComponent(effectsChainUI_); // 默认隐藏
-
-    // 设置效果链UI的引用
-    effectsChainUI_.setManagerRef([this]() -> EffectsChainPresetManager* {
-        return &processor_.getEffectsChainPresetManager();
-    });
-    effectsChainUI_.setPresetRef([this]() -> EffectsChainPreset* {
-        return &processor_.getCurrentEffectsChainPreset();
-    });
-    effectsChainUI_.setSetPresetFn([this](const EffectsChainPreset& preset) {
-        processor_.setCurrentEffectsChainPreset(preset);
-    });
-
-    // AI提示输入
-    aiPromptInput_.setMultiLine(false);
-    aiPromptInput_.setTextToShowWhenEmpty("描述声音...", juce::Colour(0xFF555568));
-    aiPromptInput_.setFont(juce::Font(13.0f));
-    aiPromptInput_.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFF1e1e2a));
-    aiPromptInput_.setColour(juce::TextEditor::textColourId, juce::Colour(0xFFe0e0e0));
-    aiPromptInput_.setColour(juce::TextEditor::outlineColourId, juce::Colour(0xFF2a2a3a));
-    addAndMakeVisible(aiPromptInput_);
-
-    // 设置WebSocket消息处理
+    // =========================================================================
+    // 步骤3: 设置 WebSocket 消息处理（必须在 WebBrowserComponent 之前）
+    // =========================================================================
     setupMessageHandlers();
 
-    // 启动WebSocket服务器
+    // =========================================================================
+    // 步骤4: 启动 WebSocket 消息服务器（端口 9001）
+    // =========================================================================
     uiServer_.start(9001);
-    wsStatusLabel_.setText("WebSocket: 端口9001 | 等待Web UI连接...", juce::dontSendNotification);
 
-    // 启动定时器
+    // =========================================================================
+    // 步骤5: 创建嵌入式 Web 浏览器组件
+    // 加载内置 HTTP 服务器提供的 Web UI
+    // 使用 WebBrowserComponent::Options 配置浏览器行为
+    // =========================================================================
+    juce::WebBrowserComponent::Options webOptions;
+    // 允许 WebBrowserComponent 访问本地 HTTP 服务器
+    // backends: Windows 默认 WebView2，macOS 默认 WKWebView
+    webOptions.withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
+              .withNativeIntegrationEnabled()
+              .withOptionsFrom(juce::WebBrowserComponent::Options()
+                  .withResourceProviderEnabled(false));  // 不使用 JUCE 内置资源提供器
+
+    webBrowser_ = std::make_unique<juce::WebBrowserComponent>(webOptions);
+
+    // 加载 Web UI（通过内置 HTTP 服务器）
+    juce::URL webUIUrl("http://localhost:" + juce::String(httpServer_->getPort()) + "/index.html");
+    webBrowser_->goToURL(webUIUrl);
+
+    addAndMakeVisible(webBrowser_.get());
+
+    DBG("[LianCore] WebBrowserComponent 已创建，加载: " << webUIUrl.toString(false));
+
+    // 启动定时器（用于 CPU/内存状态广播）
     startTimerHz(10);
 }
 
 PluginEditor::~PluginEditor() {
     stopTimer();
+
+    // 先停止 WebSocket 服务器
     uiServer_.stop();
-    setLookAndFeel(nullptr);  // 清理 CJK LookAndFeel
+
+    // 再停止 HTTP 服务器
+    if (httpServer_) {
+        httpServer_->stop();
+    }
+
+    // 移除 WebBrowserComponent
+    if (webBrowser_) {
+        webBrowser_.reset();
+    }
 }
 
 void PluginEditor::paint(juce::Graphics& g) {
-    // 背景 - 深色极简风格
+    // 背景色：纯黑，确保 WebBrowserComponent 加载前和卸载后视觉一致
     g.fillAll(juce::Colour(0xFF0a0a0f));
 
-    // 顶部装饰线
-    g.setColour(juce::Colour(0xFF6c5ce7));
-    g.drawLine(30, 65, getWidth() - 30, 65, 1.0f);
-
-    // 底部装饰线
-    g.setColour(juce::Colour(0xFF2a2a3a));
-    g.drawLine(30, getHeight() - 35, getWidth() - 30, getHeight() - 35, 1.0f);
-
-    // 更新CPU/内存显示
-    cpuLabel_.setText(
-        juce::String::formatted("CPU: %.2fms | 内存: %.1fMB",
-            processor_.getCpuUsage(),
-            processor_.getMemoryUsage() / 1024.0 / 1024.0),
-        juce::dontSendNotification
-    );
-
-    // 广播状态到Web UI
+    // 广播 CPU/内存状态到 Web UI
     uiServer_.broadcastStatus(processor_.getCpuUsage(), processor_.getMemoryUsage());
 }
 
 void PluginEditor::resized() {
-    auto area = getLocalBounds().reduced(20);
-
-    // 标题
-    titleLabel_.setBounds(area.removeFromTop(35));
-    area.removeFromTop(10);
-
-    // 状态行
-    statusLabel_.setBounds(area.removeFromTop(20));
-    area.removeFromTop(10);
-
-    // AI输入区域
-    auto aiRow = area.removeFromTop(35);
-    aiPromptInput_.setBounds(aiRow.removeFromLeft(aiRow.getWidth() - 120));
-    aiTestButton_.setBounds(aiRow.withWidth(120).reduced(4, 2));
-
-    area.removeFromTop(10);
-
-    // 按钮行
-    auto buttonRow = area.removeFromTop(35);
-    wavetableEditorButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
-    buttonRow.removeFromLeft(4);
-    mpeRecordingButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
-    buttonRow.removeFromLeft(4);
-    granularEngineButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
-    buttonRow.removeFromLeft(4);
-    effectsChainButton_.setBounds(buttonRow.removeFromLeft(120).reduced(4, 2));
-    buttonRow.removeFromLeft(4);
-    openWebUIButton_.setBounds(buttonRow.withWidth(140).reduced(4, 2));
-
-    area.removeFromTop(10);
-
-    // WebSocket状态
-    wsStatusLabel_.setBounds(area.removeFromTop(20));
-
-    // CPU状态
-    cpuLabel_.setBounds(10, getHeight() - 30, 300, 20);
-
-    // 波表编辑器 (下半部分)
-    if (wavetableEditorVisible_) {
-        wavetableEditor_.setBounds(0, 280, getWidth(), getHeight() - 280);
-    }
-
-    // MPE录制UI (下半部分, P6-1)
-    if (mpeRecordingVisible_) {
-        mpeRecordingUI_.setBounds(0, 280, getWidth(), getHeight() - 280);
-    }
-
-    // 粒子合成引擎UI (下半部分, P6-2)
-    if (granularEngineVisible_) {
-        granularEngineUI_.setBounds(0, 280, getWidth(), getHeight() - 280);
-    }
-
-    // 效果链预设UI (下半部分, P6-3)
-    if (effectsChainVisible_) {
-        effectsChainUI_.setBounds(0, 280, getWidth(), getHeight() - 280);
+    // WebBrowserComponent 填满整个编辑器窗口
+    if (webBrowser_) {
+        webBrowser_->setBounds(getLocalBounds());
     }
 }
 
 void PluginEditor::timerCallback() {
-    // 定时更新UI状态
+    // 定时更新 UI 状态
     repaint();
 }
 

@@ -97,7 +97,7 @@ juce_add_plugin(LianCore
     VST3_CATEGORIES "Instrument|Synth"
 
     # 是否需要UI
-    NEEDS_WEB_BROWSER FALSE
+    NEEDS_WEB_BROWSER TRUE
 
     # 禁用二进制资源编译器 (无BinaryData, 避免juceaide崩溃)
     NEEDS_BINARY_BUILDER FALSE
@@ -175,6 +175,7 @@ juce_add_plugin(LianCore
         # 插件入口
         src/plugin/PluginProcessor.cpp
         src/plugin/PluginEditor.cpp
+        src/plugin/SimpleHTTPServer.cpp
         src/plugin/MPEProcessor.cpp
         src/plugin/MPERecorder.cpp
         src/plugin/OversamplingProcessor.cpp
@@ -356,6 +357,7 @@ target_sources(LianCore PRIVATE
     # 插件入口
     src/plugin/PluginProcessor.cpp
     src/plugin/PluginEditor.cpp
+    src/plugin/SimpleHTTPServer.cpp
     src/plugin/MPEProcessor.cpp
     src/plugin/MPERecorder.cpp
     src/plugin/OversamplingProcessor.cpp

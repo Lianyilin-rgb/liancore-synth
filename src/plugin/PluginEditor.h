@@ -1,15 +1,13 @@
 // =============================================================================
-// LianCore - PluginEditor VST3插件编辑器 (Beta阶段: Web UI + WebSocket)
-// 集成React前端UI, 通过WebSocket与C++核心通信
+// LianCore - PluginEditor VST3插件编辑器 (WebBrowserComponent + 内置HTTP服务器)
+// 嵌入 JUCE WebBrowserComponent 加载 Web UI，通过内置 HTTP 服务器提供静态文件
+// WebSocket 端口 9001 用于 UI ↔ C++ 核心实时通信
 // =============================================================================
 #pragma once
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "../ui/WavetableEditor.h"
-#include "../ui/MPERecordingUI.h"
-#include "../ui/GranularEngineUI.h"
-#include "../ui/EffectsChainUI.h"
+#include "SimpleHTTPServer.h"
 #include <unordered_map>
 #include <functional>
 
@@ -57,7 +55,13 @@ private:
 };
 
 // =============================================================================
-// PluginEditor (Beta阶段)
+// PluginEditor (WebBrowserComponent 嵌入式 Web UI)
+// 架构：
+//   PluginEditor → WebBrowserComponent → http://localhost:9000/index.html
+//                      ↑
+//             SimpleHTTPServer (端口 9000, 服务 VST3 Bundle 内静态文件)
+//                      ↑
+//             UIMessageServer (端口 9001, WebSocket 实时通信)
 // =============================================================================
 class PluginEditor : public juce::AudioProcessorEditor,
                      private juce::Timer {
@@ -73,40 +77,16 @@ private:
 
     PluginProcessor& processor_;
 
-    // Beta阶段UI元素
-    juce::Label titleLabel_;
-    juce::Label statusLabel_;
-    juce::Label cpuLabel_;
-    juce::Label wsStatusLabel_;
-    juce::TextButton openWebUIButton_;
-    juce::TextButton aiTestButton_;
-    juce::TextButton wavetableEditorButton_;
-    juce::TextButton mpeRecordingButton_;
-    juce::TextButton granularEngineButton_;
-    juce::TextButton effectsChainButton_;
-    juce::TextEditor aiPromptInput_;
+    // 嵌入式 Web 浏览器组件 (Windows: WebView2/Edge, macOS: WKWebView)
+    std::unique_ptr<juce::WebBrowserComponent> webBrowser_;
 
-    // 波表编辑器 (P2-2)
-    WavetableEditor wavetableEditor_;
-    bool wavetableEditorVisible_ = false;
+    // 内置 HTTP 静态文件服务器 (端口 9000)
+    // 从 VST3 Bundle 的 Contents/Resources/ui/ 目录提供 Web UI 文件
+    std::unique_ptr<SimpleHTTPServer> httpServer_;
 
-    // MPE录制UI (P6-1)
-    MPERecordingUI mpeRecordingUI_;
-    bool mpeRecordingVisible_ = false;
-
-    // 粒子合成引擎UI (P6-2)
-    GranularEngineUI granularEngineUI_;
-    bool granularEngineVisible_ = false;
-
-    // 效果链预设UI (P6-3)
-    EffectsChainUI effectsChainUI_;
-    bool effectsChainVisible_ = false;
-
-    // WebSocket消息服务器
+    // WebSocket 消息服务器 (端口 9001)
+    // Web UI ↔ C++ 核心 实时双向通信
     UIMessageServer uiServer_;
-
-    // CJK LookAndFeel: Windows 上使用 Microsoft YaHei 确保中文正常显示
-    std::unique_ptr<juce::LookAndFeel> cjkLookAndFeel_;
 
     // 处理Web UI消息
     void setupMessageHandlers();
@@ -123,6 +103,10 @@ private:
 
     // morph 渐变完成回调
     void onMorphComplete();
+
+    // 获取 VST3 Bundle 内 UI 资源目录路径
+    // 返回 Contents/Resources/ui/ 的 File 对象
+    static juce::File getBundleUIPath();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginEditor)
 };
