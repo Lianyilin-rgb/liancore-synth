@@ -114,11 +114,68 @@ void ResourceDownloader::run() {
 
     // 检查预设库
     if (!getPresetLibraryPath().existsAsFile()) {
-        // 查找匹配的 URL
-        for (const auto& url : assetUrls) {
-            if (url.contains("preset_library_1M.db")) {
-                tasks.push_back({"preset_library_1M.db", url, getPresetLibraryPath()});
+        // 预设库可能被分片上传（GitHub 2 GB 限制），需要下载所有分片后重组
+        bool allPartsDownloaded = true;
+        juce::Array<juce::File> partFiles;
+        int partIndex = 0;
+
+        // 先下载所有分片
+        while (true) {
+            juce::String partName = "preset_library_1M.db.part" + juce::String::formatted("%03d", partIndex);
+            auto partFile = getResourceDirectory().getChildFile(partName);
+
+            if (partFile.existsAsFile()) {
+                // 分片已存在，跳过下载
+                partFiles.add(partFile);
+                partIndex++;
+                continue;
+            }
+
+            // 查找分片下载 URL
+            bool found = false;
+            for (const auto& url : assetUrls) {
+                if (url.contains(partName)) {
+                    tasks.push_back({partName, url, partFile});
+                    allPartsDownloaded = false;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                // 没有更多分片
                 break;
+            }
+            partIndex++;
+        }
+
+        // 如果所有分片已下载，重组文件
+        if (allPartsDownloaded && partFiles.size() > 0) {
+            DBG("[LianCore] 预设库分片已下载，正在重组...");
+            juce::FileOutputStream output(getPresetLibraryPath());
+            if (output.openedOk()) {
+                for (const auto& partFile : partFiles) {
+                    juce::FileInputStream input(partFile);
+                    if (input.openedOk()) {
+                        output.writeFromInputStream(input, -1);
+                    }
+                }
+                output.flush();
+                DBG("[LianCore] 预设库重组完成: " << getPresetLibraryPath().getFullPathName());
+
+                // 删除分片文件
+                for (const auto& partFile : partFiles) {
+                    partFile.deleteFile();
+                }
+            }
+        }
+    } else {
+        // 预设库已存在，检查并清理残留的分片文件
+        for (int i = 0; i < 10; ++i) {
+            juce::String partName = "preset_library_1M.db.part" + juce::String::formatted("%03d", i);
+            auto partFile = getResourceDirectory().getChildFile(partName);
+            if (partFile.existsAsFile()) {
+                partFile.deleteFile();
             }
         }
     }
@@ -150,13 +207,13 @@ void ResourceDownloader::run() {
         getModelDirectory().createDirectory();
     }
 
-    // 需要下载的模型文件列表
+    // 需要下载的模型文件列表（实际文件名）
     static const char* modelFiles[] = {
-        "text_encoder_model.onnx",
-        "parameter_mapper_model.onnx",
-        "emotion_mapper_model.onnx",
-        "timbre_analyzer_model.onnx",
-        "wavetable_generator_model.onnx",
+        "liancore_ai_model.onnx",
+        "audio_encoder.onnx",
+        "param_regressor.onnx",
+        "wavetable_vae_decoder.onnx",
+        "transformer_encoder.onnx",
     };
 
     for (const auto* modelName : modelFiles) {
@@ -226,6 +283,45 @@ void ResourceDownloader::run() {
     }
 
     downloading_ = false;
+
+    // 下载完成后，检查是否有预设库分片需要重组
+    if (allSuccess) {
+        // 检查是否存在分片文件
+        juce::Array<juce::File> partFiles;
+        for (int i = 0; i < 10; ++i) {
+            juce::String partName = "preset_library_1M.db.part" + juce::String::formatted("%03d", i);
+            auto partFile = getResourceDirectory().getChildFile(partName);
+            if (partFile.existsAsFile()) {
+                partFiles.add(partFile);
+            } else {
+                break; // 假设分片是连续的
+            }
+        }
+
+        if (partFiles.size() > 0 && !getPresetLibraryPath().existsAsFile()) {
+            DBG("[LianCore] 正在重组预设库分片 (" << partFiles.size() << " 个分片)...");
+            juce::FileOutputStream output(getPresetLibraryPath());
+            if (output.openedOk()) {
+                for (const auto& partFile : partFiles) {
+                    juce::FileInputStream input(partFile);
+                    if (input.openedOk()) {
+                        output.writeFromInputStream(input, -1);
+                    }
+                }
+                output.flush();
+                DBG("[LianCore] 预设库重组完成: " << getPresetLibraryPath().getFullPathName());
+
+                // 删除分片文件
+                for (const auto& partFile : partFiles) {
+                    partFile.deleteFile();
+                }
+                messages.add("预设库重组完成 (" + juce::String(partFiles.size()) + " 个分片)");
+            } else {
+                messages.add("预设库重组失败: 无法创建输出文件");
+                allSuccess = false;
+            }
+        }
+    }
 
     if (completionCallback_) {
         completionCallback_(allSuccess, messages.joinIntoString("\n"));

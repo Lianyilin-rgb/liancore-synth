@@ -25,14 +25,14 @@ UPLOAD_BASE = f"https://uploads.github.com/repos/{REPO}"
 # 需要上传的资源文件列表
 # (本地路径, 资源名称, 描述)
 ASSETS = [
-    ("data/preset_library_1M.db", "preset_library_1M.db", "百万级预设库主文件 (3.67 GB, 1,402,008 条预设)"),
+    ("data/preset_library_1M.db", "preset_library_1M.db", "百万级预设库主文件 (3.67 GB, 1,402,008 条预设) — 注意: 超过 2GB 需分片上传"),
     ("data/factory_presets.db", "factory_presets.db", "工厂预设库 (378 MB, 100,000 条预设)"),
     ("data/factory_wavetables.zip", "factory_wavetables.zip", "工厂波表库 (100 个 .wav 波表文件)"),
-    ("models/text_encoder_model.onnx", "text_encoder_model.onnx", "文本编码器 ONNX 模型"),
-    ("models/parameter_mapper_model.onnx", "parameter_mapper_model.onnx", "参数映射器 ONNX 模型"),
-    ("models/emotion_mapper_model.onnx", "emotion_mapper_model.onnx", "情感映射器 ONNX 模型"),
-    ("models/timbre_analyzer_model.onnx", "timbre_analyzer_model.onnx", "音色分析器 ONNX 模型"),
-    ("models/wavetable_generator_model.onnx", "wavetable_generator_model.onnx", "波表生成器 ONNX 模型"),
+    ("models/liancore_ai_model.onnx", "liancore_ai_model.onnx", "LianCore AI 推理模型"),
+    ("models/audio_encoder.onnx", "audio_encoder.onnx", "音频编码器 ONNX 模型"),
+    ("models/param_regressor.onnx", "param_regressor.onnx", "参数回归器 ONNX 模型"),
+    ("models/wavetable_vae_decoder.onnx", "wavetable_vae_decoder.onnx", "波表 VAE 解码器 ONNX 模型"),
+    ("models/transformer_encoder.onnx", "transformer_encoder.onnx", "Transformer 编码器 ONNX 模型"),
 ]
 
 

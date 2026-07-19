@@ -305,8 +305,21 @@ jobs:
             fi
           }
 
-          # 预设库主文件 (百万级, 3.67 GB)
-          copy_resource "preset_library_1M.db" "dmg_staging/Resources/preset_library_1M.db"
+          # 预设库主文件 (百万级, 3.67 GB) - 分片下载并重组
+          # 分片文件名: preset_library_1M.db.part000, preset_library_1M.db.part001
+          if ls download_resources/preset_library_1M.db.part* 1>/dev/null 2>&1; then
+            echo "重组预设库分片..."
+            cat download_resources/preset_library_1M.db.part* > dmg_staging/Resources/preset_library_1M.db
+            echo "  preset_library_1M.db reassembled ($(ls -lh dmg_staging/Resources/preset_library_1M.db | awk '{print $5}'))"
+          elif [ -f "download_resources/preset_library_1M.db" ]; then
+            cp download_resources/preset_library_1M.db dmg_staging/Resources/
+            echo "  preset_library_1M.db copied from Release"
+          elif [ -f "data/preset_library_1M.db" ]; then
+            cp data/preset_library_1M.db dmg_staging/Resources/
+            echo "  preset_library_1M.db copied from local data/"
+          else
+            echo "  preset_library_1M.db NOT FOUND - skipping"
+          fi
 
           # 工厂预设 (378 MB, 100k 预设)
           copy_resource "factory_presets.db" "dmg_staging/Resources/factory_presets.db"
