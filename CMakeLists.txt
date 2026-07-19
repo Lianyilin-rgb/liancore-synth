@@ -202,7 +202,7 @@ juce_add_plugin(LianCore
 
     # 编译器定义
     COMPILE_DEFINITIONS
-        LIANCORE_VERSION=\"${PROJECT_VERSION}\"
+        LIANCORE_VERSION="${PROJECT_VERSION}"
         LIANCORE_BETA=1
         LIANCORE_MAX_WAVETABLE_FRAMES=256
         LIANCORE_WAVETABLE_FRAME_SIZE=2048
@@ -210,9 +210,6 @@ juce_add_plugin(LianCore
         LIANCORE_MAX_UNDO_STEPS=50
         LIANCORE_MAX_POLYPHONY=32
 )
-
-# 注意: 所有源文件已经在上面的 juce_add_plugin(SOURCES) 中列出
-# JUCE CMake 系统会自动处理编译顺序和依赖关系，无需重复添加
 
 # ONNX Runtime 显式链接 (Generator Expression 在 juce_add_plugin 中可能不生效)
 if(ONNXRUNTIME_AVAILABLE)
@@ -269,8 +266,8 @@ if(WIN32)
     set(CPACK_NSIS_DISPLAY_NAME "LianCore VST3 Synthesizer")
     set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
     set(CPACK_NSIS_CREATE_ICONS_EXTRA
-        "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\LianCore.lnk' '$INSTDIR\\\\LianCore.vst3'")
-    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Common Files\\\\VST3")
+        "CreateShortCut '$SMPROGRAMS\\$STARTMENU_FOLDER\\LianCore.lnk' '$INSTDIR\\LianCore.vst3'")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Common Files\\VST3")
     set(CPACK_NSIS_INSTALLED_ICON_NAME "LianCore.vst3")
     set(CPACK_NSIS_HELP_LINK "https://liancore.audio")
     set(CPACK_NSIS_URL_INFO_ABOUT "https://liancore.audio")
@@ -484,10 +481,10 @@ install(TARGETS LianCore
 if(WIN32)
     add_custom_command(TARGET LianCore POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:LianCore>/../Resources/ui"
+            "${CMAKE_BINARY_DIR}/LianCore_artefacts/$<CONFIG>/VST3/LianCore.vst3/Contents/Resources/ui"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_SOURCE_DIR}/ui"
-            "$<TARGET_FILE_DIR:LianCore>/../Resources/ui"
+            "${CMAKE_BINARY_DIR}/LianCore_artefacts/$<CONFIG>/VST3/LianCore.vst3/Contents/Resources/ui"
         COMMENT "Copying Web UI resources to VST3 bundle"
     )
 endif()
