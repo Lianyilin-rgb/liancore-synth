@@ -26,6 +26,9 @@ public:
     // 是否正在运行
     bool isRunning() const { return running_; }
 
+    // 服务器是否已就绪（socket 已绑定端口，线程已启动，可接受连接）
+    bool isReady() const { return running_ && serverSocket_ != nullptr; }
+
     // 获取端口号
     int getPort() const { return port_; }
 
