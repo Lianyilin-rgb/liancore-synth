@@ -9,14 +9,40 @@ namespace LianCore {
 
 // =============================================================================
 // 构造与析构
+// 构造函数零 IO 操作，不阻塞 UI 线程
+// 所有文件检查、下载、解压、重组都在 run() 后台线程中执行
 // =============================================================================
 ResourceDownloader::ResourceDownloader()
     : juce::Thread("LianCore-ResourceDownloader") {
+    // 构造函数不做任何 IO 操作，不触碰文件系统
+    // 所有初始化检查在 run() 中异步执行
 }
 
 ResourceDownloader::~ResourceDownloader() {
     cancelled_ = true;
     stopThread(5000);
+}
+
+// =============================================================================
+// 静态方法：检查所有必需资源是否已存在（供 run() 内部使用）
+// 注意：此方法涉及文件系统 IO，仅在后台线程中调用
+// =============================================================================
+static bool checkAllResourcesAvailable() {
+    bool hasPresetLib = ResourceDownloader::getPresetLibraryPath().existsAsFile();
+    bool hasFactoryPresets = ResourceDownloader::getFactoryPresetsPath().existsAsFile();
+    bool hasWavetables = ResourceDownloader::getWavetableDirectory().exists() &&
+                         ResourceDownloader::getWavetableDirectory().getNumberOfChildFiles(
+                             juce::File::findFiles, "*.wav") > 0;
+    bool hasModels = ResourceDownloader::getModelDirectory().exists() &&
+                     ResourceDownloader::getModelDirectory().getNumberOfChildFiles(
+                         juce::File::findFiles, "*.onnx") > 0;
+
+    DBG("[LianCore] 后台资源检查: 预设库=" << (hasPresetLib ? "有" : "无")
+        << " 工厂预设=" << (hasFactoryPresets ? "有" : "无")
+        << " 波表库=" << (hasWavetables ? "有" : "无")
+        << " AI模型=" << (hasModels ? "有" : "无"));
+
+    return hasPresetLib && hasFactoryPresets && hasWavetables && hasModels;
 }
 
 // =============================================================================
@@ -52,28 +78,9 @@ juce::File ResourceDownloader::getModelDirectory() {
 }
 
 // =============================================================================
-// 检查所有必需资源是否已存在
-// =============================================================================
-bool ResourceDownloader::areResourcesAvailable() const {
-    bool hasPresetLib = getPresetLibraryPath().existsAsFile();
-    bool hasFactoryPresets = getFactoryPresetsPath().existsAsFile();
-    bool hasWavetables = getWavetableDirectory().exists() &&
-                         getWavetableDirectory().getNumberOfChildFiles(
-                             juce::File::findFiles, "*.wav") > 0;
-    bool hasModels = getModelDirectory().exists() &&
-                     getModelDirectory().getNumberOfChildFiles(
-                         juce::File::findFiles, "*.onnx") > 0;
-
-    DBG("[LianCore] 资源检查: 预设库=" << (hasPresetLib ? "有" : "无")
-        << " 工厂预设=" << (hasFactoryPresets ? "有" : "无")
-        << " 波表库=" << (hasWavetables ? "有" : "无")
-        << " AI模型=" << (hasModels ? "有" : "无"));
-
-    return hasPresetLib && hasFactoryPresets && hasWavetables && hasModels;
-}
-
-// =============================================================================
 // 开始下载（异步）
+// 构造函数中调用此方法，不阻塞 UI 线程
+// 所有文件检查和下载都在 run() 后台线程中执行
 // =============================================================================
 void ResourceDownloader::startDownload() {
     if (downloading_) {
@@ -93,6 +100,22 @@ void ResourceDownloader::run() {
     bool allSuccess = true;
 
     try {
+        // =====================================================================
+        // 步骤0: 先检查资源是否已就绪（在后台线程中执行文件系统 IO）
+        // 如果所有资源已存在，无需下载，直接设置标志并返回
+        // 这是唯一涉及文件系统 IO 的地方，不阻塞 UI 线程
+        // =====================================================================
+        if (checkAllResourcesAvailable()) {
+            DBG("[LianCore] 所有资源已就绪，无需下载");
+            resourcesAvailable_ = true;
+            downloadComplete_ = true;
+            downloading_ = false;
+            if (completionCallback_) {
+                completionCallback_(true, "所有资源已就绪");
+            }
+            return;
+        }
+
         // 获取 GitHub Release 资源下载 URL
         auto assetUrls = getAssetDownloadUrls();
 
@@ -342,6 +365,11 @@ void ResourceDownloader::run() {
     }
 
     downloading_ = false;
+    // 设置完成标志，无论成功或失败
+    downloadComplete_ = true;
+    // 下载完成后再次检查资源是否可用
+    resourcesAvailable_ = checkAllResourcesAvailable();
+    DBG("[LianCore] 资源下载流程结束: resourcesAvailable=" << (resourcesAvailable_.load() ? "true" : "false"));
 }
 
 // =============================================================================

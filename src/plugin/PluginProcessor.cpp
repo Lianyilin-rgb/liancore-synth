@@ -29,48 +29,40 @@ PluginProcessor::PluginProcessor()
         enableMPE(true);
 
 #ifndef LIANCORE_SAFE_MODE
-        // 检查资源文件是否就绪，缺失时自动从 GitHub Release 下载
-        // 预设库、波表库、AI 模型等大文件通过 GitHub Release 分发
-        if (!resourceDownloader_.areResourcesAvailable()) {
-            DBG("LianCore: 检测到资源文件缺失，将自动从 GitHub Release 下载");
-            DBG("  预设库: " << (ResourceDownloader::getPresetLibraryPath().existsAsFile() ? "已就绪" : "缺失"));
-            DBG("  工厂预设: " << (ResourceDownloader::getFactoryPresetsPath().existsAsFile() ? "已就绪" : "缺失"));
-            DBG("  波表库: " << (ResourceDownloader::getWavetableDirectory().exists() ? "已就绪" : "缺失"));
-            DBG("  AI模型: " << (ResourceDownloader::getModelDirectory().exists() ? "已就绪" : "缺失"));
+        // 启动异步资源下载（不阻塞 UI 线程）
+        // ResourceDownloader 构造函数零 IO 操作，所有文件检查和下载
+        // 都在 run() 后台线程中执行。如果资源已存在，立即完成。
+        resourceDownloader_.setProgressCallback(
+            [this](int64 downloaded, int64 total, const juce::String& filename) {
+                juce::DynamicObject progress;
+                progress.setProperty("downloaded", downloaded);
+                progress.setProperty("total", total);
+                progress.setProperty("filename", filename);
+                // 进度回调在后台线程中，通过消息管理器异步发送
+                juce::MessageManager::callAsync([this, progress = std::move(progress)]() mutable {
+                    // 状态将在 PluginEditor 的广播中处理
+                    juce::ignoreUnused(progress);
+                });
+            }
+        );
 
-            // 设置下载进度回调（通过 WebSocket 推送到 Web UI）
-            resourceDownloader_.setProgressCallback(
-                [this](int64 downloaded, int64 total, const juce::String& filename) {
-                    juce::DynamicObject progress;
-                    progress.setProperty("downloaded", downloaded);
-                    progress.setProperty("total", total);
-                    progress.setProperty("filename", filename);
-                    // 进度回调在后台线程中，通过消息管理器异步发送
-                    juce::MessageManager::callAsync([this, progress = std::move(progress)]() mutable {
-                        // 状态将在 PluginEditor 的广播中处理
-                        juce::ignoreUnused(progress);
-                    });
-                }
-            );
+        // 设置下载完成回调
+        resourceDownloader_.setCompletionCallback(
+            [this](bool success, const juce::String& message) {
+                juce::MessageManager::callAsync([this, success, message]() {
+                    if (success) {
+                        DBG("LianCore: 资源下载完成");
+                    } else {
+                        DBG("LianCore: 资源下载失败: " << message);
+                    }
+                });
+            }
+        );
 
-            // 设置下载完成回调
-            resourceDownloader_.setCompletionCallback(
-                [this](bool success, const juce::String& message) {
-                    juce::MessageManager::callAsync([this, success, message]() {
-                        if (success) {
-                            DBG("LianCore: 资源下载完成");
-                        } else {
-                            DBG("LianCore: 资源下载失败: " << message);
-                        }
-                    });
-                }
-            );
-
-            // 启动异步下载（不阻塞插件加载）
-            resourceDownloader_.startDownload();
-        } else {
-            DBG("LianCore: 所有资源文件已就绪");
-        }
+        // 启动异步下载（构造函数零 IO，不阻塞 UI 线程）
+        // run() 方法会先检查资源是否已存在，存在则直接完成
+        resourceDownloader_.startDownload();
+        DBG("LianCore: 资源下载器已启动（异步后台线程）");
 #else
         DBG("LianCore: 安全模式 - 跳过资源下载（LIANCORE_SAFE_MODE=ON）");
 #endif
