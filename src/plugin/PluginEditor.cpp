@@ -243,10 +243,11 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     uiServer_.start(9001);
 
     // =========================================================================
-    // 步骤5: 创建嵌入式 Web 浏览器组件
+    // 步骤5: 创建嵌入式 Web 浏览器组件（不立即加载 URL）
     // 加载内置 HTTP 服务器提供的 Web UI
     // JUCE 8.0.14 API: Windows 使用 WebView2，macOS 使用 WKWebView
     // 使用 try-catch 保护，即使 WebBrowserComponent 创建失败也不崩溃
+    // URL 加载延迟到 timerCallback() 中，等待服务器完全就绪
     // =========================================================================
     try {
         juce::WebBrowserComponent::Options webOptions;
@@ -254,22 +255,21 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
                   .withNativeIntegrationEnabled();
 
         webBrowser_ = std::make_unique<juce::WebBrowserComponent>(webOptions);
-
-        // 加载 Web UI（通过内置 HTTP 服务器）
-        // JUCE 8.0.14: goToURL 接受 const juce::String&
-        juce::String webUIUrl = "http://localhost:" + juce::String(httpServer_->getPort()) + "/index.html";
-        webBrowser_->goToURL(webUIUrl);
-
         addAndMakeVisible(webBrowser_.get());
 
-        DBG("[LianCore] WebBrowserComponent 已创建，加载: " << webUIUrl);
+        // 保存 URL，稍后在 timerCallback() 中加载（等待服务器就绪）
+        webUIUrl_ = "http://localhost:" + juce::String(httpServer_->getPort()) + "/index.html";
+
+        DBG("[LianCore] WebBrowserComponent 已创建，等待服务器就绪后加载: " << webUIUrl_);
     } catch (const std::exception& e) {
         DBG("[LianCore] WebBrowserComponent 创建失败: " << e.what());
         DBG("[LianCore] 插件将以纯合成器模式运行（无 Web UI）");
         webBrowser_.reset();
+        fallbackMode_ = true;
     } catch (...) {
         DBG("[LianCore] WebBrowserComponent 创建失败（未知异常）");
         webBrowser_.reset();
+        fallbackMode_ = true;
     }
 
     // 启动定时器（用于 CPU/内存状态广播）
@@ -297,6 +297,20 @@ void PluginEditor::paint(juce::Graphics& g) {
     // 背景色：纯黑，确保 WebBrowserComponent 加载前和卸载后视觉一致
     g.fillAll(juce::Colour(0xFF0a0a0f));
 
+    // 回退模式：WebBrowserComponent 加载超时，显示原生 UI 提示
+    if (fallbackMode_) {
+        g.setColour(juce::Colour(0xFF00BFFF));
+        g.setFont(juce::Font(20.0f, juce::Font::bold));
+        g.drawText("LianCore V3", getLocalBounds().withTrimmedBottom(getHeight() * 2 / 3),
+                   juce::Justification::centred, true);
+        g.setColour(juce::Colour(0xFFAAAAAA));
+        g.setFont(juce::Font(14.0f));
+        g.drawText("Web UI 加载超时，请检查网络连接或重启 DAW\n插件将以纯合成器模式运行",
+                   getLocalBounds().withTrimmedTop(getHeight() / 3),
+                   juce::Justification::centred, true);
+        return;
+    }
+
     // 广播 CPU/内存状态到 Web UI
     uiServer_.broadcastStatus(processor_.getCpuUsage(), processor_.getMemoryUsage());
 }
@@ -309,6 +323,33 @@ void PluginEditor::resized() {
 }
 
 void PluginEditor::timerCallback() {
+    // =========================================================================
+    // 异步加载 Web UI URL
+    // 等待 HTTP 服务器完全就绪后再加载 URL，避免阻塞 UI 线程
+    // 5 秒超时后回退到原生 UI 模式
+    // =========================================================================
+    if (!urlLoaded_ && !fallbackMode_) {
+        // 超时检测：5 秒 = 50 次 tick（10Hz）
+        timeoutCounter_++;
+        if (timeoutCounter_ >= 50) {
+            DBG("[LianCore] Web UI 加载超时（5秒），回退到原生 UI 模式");
+            fallbackMode_ = true;
+            if (webBrowser_) {
+                webBrowser_.reset();
+            }
+            urlLoaded_ = true; // 防止重复触发
+            repaint();
+            return;
+        }
+
+        // 检查 HTTP 服务器是否就绪
+        if (httpServer_ && httpServer_->isReady() && webBrowser_) {
+            webBrowser_->goToURL(webUIUrl_);
+            urlLoaded_ = true;
+            DBG("[LianCore] 服务器就绪，Web UI 已加载: " << webUIUrl_);
+        }
+    }
+
     // 定时更新 UI 状态
     repaint();
 }

@@ -96,6 +96,16 @@ private:
     // Web UI ↔ C++ 核心 实时双向通信
     UIMessageServer uiServer_;
 
+    // 异步加载状态
+    // URL 是否已加载（防止重复加载）
+    std::atomic<bool> urlLoaded_{false};
+    // 超时计数器（10Hz tick，50 次 = 5 秒）
+    int timeoutCounter_ = 0;
+    // 待加载的 Web UI URL
+    juce::String webUIUrl_;
+    // 回退模式：超时后显示原生 UI 提示
+    bool fallbackMode_ = false;
+
     // 处理Web UI消息
     void setupMessageHandlers();
 
