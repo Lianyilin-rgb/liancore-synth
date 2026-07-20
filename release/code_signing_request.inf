@@ -12,7 +12,7 @@
 Signature="$Windows NT$"
 
 [NewRequest]
-Subject = "CN=连毅霖, O=LianCore, L=Shanghai, C=CN"
+Subject = "CN=Lian YiLin, O=LianCore, L=Shanghai, C=CN"
 KeyAlgorithm = RSA
 KeyLength = 4096
 KeySpec = 2     ; AT_SIGNATURE (数字签名)

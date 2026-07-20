@@ -19,7 +19,7 @@
 namespace ProjectInfo
 {
     const char* const  projectName    = "LianCoreTests";
-    const char* const  companyName    = "连毅霖";
+    const char* const  companyName    = "Lian YiLin";
     const char* const  versionString  = "1.0.0";
     const int          versionNumber  = 0x10000;
 }

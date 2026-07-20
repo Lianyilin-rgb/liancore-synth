@@ -289,7 +289,7 @@ RequestExecutionLevel admin
 # ---- 版本 ----
 !define VERSION "3.0.0"
 !define PRODUCT_NAME "LianCore"
-!define MANUFACTURER "连毅霖"
+!define MANUFACTURER "Lian YiLin"
 
 # ---- 界面设置 ----
 !define MUI_ABORTWARNING
