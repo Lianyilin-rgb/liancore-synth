@@ -77,7 +77,8 @@ void SimpleHTTPServer::stop() {
 void SimpleHTTPServer::run() {
     while (running_ && !threadShouldExit()) {
         // 接受新连接（非阻塞，超时 100ms）
-        if (auto* clientSocket = serverSocket_->waitForNextConnection(100)) {
+        // JUCE 8.0.14: waitForNextConnection 不接受超时参数，使用 select 方式
+        if (auto* clientSocket = serverSocket_->waitForNextConnection()) {
             if (clientSocket->isConnected()) {
                 handleClient(*clientSocket);
             }

@@ -237,25 +237,22 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     // =========================================================================
     // 步骤5: 创建嵌入式 Web 浏览器组件
     // 加载内置 HTTP 服务器提供的 Web UI
-    // 使用 WebBrowserComponent::Options 配置浏览器行为
+    // JUCE 8.0.14 API: Windows 使用 WebView2，macOS 使用 WKWebView
     // =========================================================================
     juce::WebBrowserComponent::Options webOptions;
-    // 允许 WebBrowserComponent 访问本地 HTTP 服务器
-    // backends: Windows 默认 WebView2，macOS 默认 WKWebView
     webOptions.withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
-              .withNativeIntegrationEnabled()
-              .withOptionsFrom(juce::WebBrowserComponent::Options()
-                  .withResourceProviderEnabled(false));  // 不使用 JUCE 内置资源提供器
+              .withNativeIntegrationEnabled();
 
     webBrowser_ = std::make_unique<juce::WebBrowserComponent>(webOptions);
 
     // 加载 Web UI（通过内置 HTTP 服务器）
-    juce::URL webUIUrl("http://localhost:" + juce::String(httpServer_->getPort()) + "/index.html");
+    // JUCE 8.0.14: goToURL 接受 const juce::String&
+    juce::String webUIUrl = "http://localhost:" + juce::String(httpServer_->getPort()) + "/index.html";
     webBrowser_->goToURL(webUIUrl);
 
     addAndMakeVisible(webBrowser_.get());
 
-    DBG("[LianCore] WebBrowserComponent 已创建，加载: " << webUIUrl.toString(false));
+    DBG("[LianCore] WebBrowserComponent 已创建，加载: " << webUIUrl);
 
     // 启动定时器（用于 CPU/内存状态广播）
     startTimerHz(10);
