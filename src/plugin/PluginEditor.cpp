@@ -1,7 +1,7 @@
 // =============================================================================
-// LianCore - PluginEditor 实现 (WebBrowserComponent + 内置HTTP服务器)
-// 嵌入 JUCE WebBrowserComponent 加载 Web UI，无需外部浏览器
-// WebSocket 端口 9001 用于 Web UI ↔ C++ 核心实时通信
+// LianCore - PluginEditor 实现
+// 正常模式: WebBrowserComponent + 内置HTTP服务器
+// 安全模式: 原生 JUCE 组件（CJKLookAndFeel + 基本参数控件）
 // =============================================================================
 #include "PluginEditor.h"
 #include "../ai/AIInferenceEngine.h"
@@ -12,11 +12,14 @@
 namespace LianCore {
 
 // 前向声明
+#ifndef LIANCORE_SAFE_MODE
 static juce::String parseWebSocketMessage(juce::String& buffer);
+#endif
 
 // =============================================================================
-// UIMessageServer 实现
+// UIMessageServer 实现（仅在非安全模式下编译）
 // =============================================================================
+#ifndef LIANCORE_SAFE_MODE
 UIMessageServer::UIMessageServer()
     : juce::Thread("LianCore-UI-Server") {
 }
@@ -218,10 +221,15 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     // =========================================================================
     // 步骤2: 启动内置 HTTP 静态文件服务器（端口 9000）
     // 从 VST3 Bundle 的 Contents/Resources/ui/ 目录提供文件
+    // 端口自动重试：9000-9005
     // =========================================================================
     httpServer_ = std::make_unique<SimpleHTTPServer>();
-    if (!httpServer_->start(9000, uiDir)) {
-        DBG("[LianCore] HTTP 服务器启动失败，Web UI 将不可用");
+    bool httpServerStarted = httpServer_->start(9000, uiDir);
+    if (!httpServerStarted) {
+        DBG("[LianCore] HTTP 服务器启动失败，Web UI 将不可用，跳过 WebBrowserComponent 创建");
+        // 无 Web UI 时，插件编辑器将显示空白背景，但不会崩溃
+        startTimerHz(10);
+        return;
     }
 
     // =========================================================================
@@ -238,21 +246,31 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     // 步骤5: 创建嵌入式 Web 浏览器组件
     // 加载内置 HTTP 服务器提供的 Web UI
     // JUCE 8.0.14 API: Windows 使用 WebView2，macOS 使用 WKWebView
+    // 使用 try-catch 保护，即使 WebBrowserComponent 创建失败也不崩溃
     // =========================================================================
-    juce::WebBrowserComponent::Options webOptions;
-    webOptions.withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
-              .withNativeIntegrationEnabled();
+    try {
+        juce::WebBrowserComponent::Options webOptions;
+        webOptions.withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
+                  .withNativeIntegrationEnabled();
 
-    webBrowser_ = std::make_unique<juce::WebBrowserComponent>(webOptions);
+        webBrowser_ = std::make_unique<juce::WebBrowserComponent>(webOptions);
 
-    // 加载 Web UI（通过内置 HTTP 服务器）
-    // JUCE 8.0.14: goToURL 接受 const juce::String&
-    juce::String webUIUrl = "http://localhost:" + juce::String(httpServer_->getPort()) + "/index.html";
-    webBrowser_->goToURL(webUIUrl);
+        // 加载 Web UI（通过内置 HTTP 服务器）
+        // JUCE 8.0.14: goToURL 接受 const juce::String&
+        juce::String webUIUrl = "http://localhost:" + juce::String(httpServer_->getPort()) + "/index.html";
+        webBrowser_->goToURL(webUIUrl);
 
-    addAndMakeVisible(webBrowser_.get());
+        addAndMakeVisible(webBrowser_.get());
 
-    DBG("[LianCore] WebBrowserComponent 已创建，加载: " << webUIUrl);
+        DBG("[LianCore] WebBrowserComponent 已创建，加载: " << webUIUrl);
+    } catch (const std::exception& e) {
+        DBG("[LianCore] WebBrowserComponent 创建失败: " << e.what());
+        DBG("[LianCore] 插件将以纯合成器模式运行（无 Web UI）");
+        webBrowser_.reset();
+    } catch (...) {
+        DBG("[LianCore] WebBrowserComponent 创建失败（未知异常）");
+        webBrowser_.reset();
+    }
 
     // 启动定时器（用于 CPU/内存状态广播）
     startTimerHz(10);
@@ -572,5 +590,108 @@ void PluginEditor::pushMorphProgress(float progress, const juce::String& status)
 void PluginEditor::onMorphComplete() {
     pushMorphProgress(1.0f, "complete");
 }
+
+#endif // !LIANCORE_SAFE_MODE
+
+// =============================================================================
+// 安全模式: 原生 JUCE UI 实现
+// 使用 CJKLookAndFeel 确保中文不乱码
+// 不依赖 HTTP/WebSocket/WebView2，确保最稳定
+// =============================================================================
+#ifdef LIANCORE_SAFE_MODE
+
+// CJK 兼容 LookAndFeel（使用系统默认字体，支持中文/日文/韩文）
+class CJKLookAndFeel : public juce::LookAndFeel_V4 {
+public:
+    CJKLookAndFeel() {
+        // 使用支持 CJK 的字体
+        juce::StringArray fontNames;
+        fontNames.add("Microsoft YaHei");     // 微软雅黑（Windows）
+        fontNames.add("PingFang SC");          // 苹方（macOS）
+        fontNames.add("Noto Sans CJK SC");     // 思源黑体
+        fontNames.add("Arial");                // 回退
+        setDefaultSansSerifTypeface(juce::Typeface::createSystemTypefaceFor(
+            juce::Font(fontNames[0], 14.0f, juce::Font::plain)));
+    }
+};
+
+PluginEditor::PluginEditor(PluginProcessor& processor)
+    : AudioProcessorEditor(&processor)
+    , processor_(processor) {
+    // 设置窗口大小
+    setSize(600, 400);
+
+    // 创建 CJK 兼容 LookAndFeel
+    lookAndFeel_ = std::make_unique<CJKLookAndFeel>();
+    setLookAndFeel(lookAndFeel_.get());
+
+    // 背景色：深色主题
+    // 状态标签 - 插件名称和版本
+    statusLabel_ = std::make_unique<juce::Label>("status", "LianCore V3");
+    statusLabel_->setFont(juce::Font(24.0f, juce::Font::bold));
+    statusLabel_->setColour(juce::Label::textColourId, juce::Colour(0xFF00BFFF));
+    statusLabel_->setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(statusLabel_.get());
+
+    // 信息标签 - 安全模式提示
+    infoLabel_ = std::make_unique<juce::Label>("info", "安全模式 - 纯合成器引擎\nAI/Web/下载已禁用");
+    infoLabel_->setFont(juce::Font(14.0f));
+    infoLabel_->setColour(juce::Label::textColourId, juce::Colour(0xFFAAAAAA));
+    infoLabel_->setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(infoLabel_.get());
+
+    // 音量滑块
+    volumeSlider_ = std::make_unique<juce::Slider>(juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight);
+    volumeSlider_->setRange(0.0, 1.0, 0.01);
+    volumeSlider_->setValue(0.8);
+    volumeSlider_->setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
+    volumeSlider_->setColour(juce::Slider::thumbColourId, juce::Colour(0xFF00BFFF));
+    volumeSlider_->setColour(juce::Slider::trackColourId, juce::Colour(0xFF004466));
+    addAndMakeVisible(volumeSlider_.get());
+
+    // 音量标签
+    volumeLabel_ = std::make_unique<juce::Label>("volLabel", "音量");
+    volumeLabel_->setFont(juce::Font(12.0f));
+    volumeLabel_->setColour(juce::Label::textColourId, juce::Colour(0xFFCCCCCC));
+    volumeLabel_->attachToComponent(volumeSlider_.get(), true);
+    addAndMakeVisible(volumeLabel_.get());
+
+    DBG("[LianCore] 安全模式原生 UI 已创建");
+}
+
+PluginEditor::~PluginEditor() {
+    setLookAndFeel(nullptr);
+}
+
+void PluginEditor::paint(juce::Graphics& g) {
+    // 深色背景
+    g.fillAll(juce::Colour(0xFF0a0a0f));
+}
+
+void PluginEditor::resized() {
+    auto area = getLocalBounds().reduced(20);
+    int y = 40;
+
+    // 状态标签
+    statusLabel_->setBounds(area.removeFromTop(40));
+
+    // 间距
+    area.removeFromTop(10);
+
+    // 信息标签
+    infoLabel_->setBounds(area.removeFromTop(60));
+
+    // 间距
+    area.removeFromTop(20);
+
+    // 音量滑块
+    auto sliderArea = area.removeFromTop(40);
+    volumeSlider_->setBounds(sliderArea);
+}
+
+void PluginEditor::timerCallback() {
+    // 安全模式下无需定时更新
+}
+#endif // LIANCORE_SAFE_MODE
 
 } // namespace LianCore

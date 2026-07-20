@@ -20,7 +20,8 @@ SimpleHTTPServer::~SimpleHTTPServer() {
 }
 
 // =============================================================================
-// 启动服务器
+// 启动服务器（端口自动重试：9000-9005）
+// 返回 true 表示成功启动，false 表示所有端口都失败
 // =============================================================================
 bool SimpleHTTPServer::start(int port, const juce::File& rootDir) {
     if (running_) {
@@ -38,15 +39,30 @@ bool SimpleHTTPServer::start(int port, const juce::File& rootDir) {
 
     serverSocket_ = std::make_unique<juce::StreamingSocket>();
 
-    if (!serverSocket_->createListener(port_)) {
-        DBG("[LianCore-HTTP] 端口 " << port_ << " 监听失败，尝试端口 9000");
-        // 回退到默认端口
-        port_ = 9000;
-        if (!serverSocket_->createListener(port_)) {
-            DBG("[LianCore-HTTP] 端口 9000 也监听失败");
-            serverSocket_.reset();
-            return false;
+    // 端口自动重试：从指定端口开始，尝试 9000-9005
+    static constexpr int kMaxRetryPort = 9005;
+    bool portBound = false;
+
+    for (int retryPort = port_; retryPort <= kMaxRetryPort; ++retryPort) {
+        try {
+            if (serverSocket_->createListener(retryPort)) {
+                port_ = retryPort;
+                portBound = true;
+                DBG("[LianCore-HTTP] 端口 " << port_ << " 监听成功");
+                break;
+            }
+            DBG("[LianCore-HTTP] 端口 " << retryPort << " 被占用，尝试下一个...");
+        } catch (...) {
+            DBG("[LianCore-HTTP] 端口 " << retryPort << " 监听异常，尝试下一个...");
+            // 重新创建 socket（异常后可能处于无效状态）
+            serverSocket_.reset(new juce::StreamingSocket());
         }
+    }
+
+    if (!portBound) {
+        DBG("[LianCore-HTTP] 所有端口 (9000-9005) 监听失败，HTTP 服务器不可用");
+        serverSocket_.reset();
+        return false;
     }
 
     running_ = true;

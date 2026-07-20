@@ -28,6 +28,7 @@ PluginProcessor::PluginProcessor()
         // 启用 MPE 支持 (Zone 1: 主通道 1, 成员通道 2-15)
         enableMPE(true);
 
+#ifndef LIANCORE_SAFE_MODE
         // 检查资源文件是否就绪，缺失时自动从 GitHub Release 下载
         // 预设库、波表库、AI 模型等大文件通过 GitHub Release 分发
         if (!resourceDownloader_.areResourcesAvailable()) {
@@ -70,6 +71,9 @@ PluginProcessor::PluginProcessor()
         } else {
             DBG("LianCore: 所有资源文件已就绪");
         }
+#else
+        DBG("LianCore: 安全模式 - 跳过资源下载（LIANCORE_SAFE_MODE=ON）");
+#endif
     } catch (const std::exception& e) {
         // 初始化失败时输出静音: processBlock 中无 MIDI 检测逻辑确保
         // 不输出默认正弦波/噪音

@@ -86,22 +86,23 @@ void ResourceDownloader::startDownload() {
 }
 
 // =============================================================================
-// 后台下载线程
+// 后台下载线程（完全异步，不阻塞构造函数，异常不抛出）
 // =============================================================================
 void ResourceDownloader::run() {
     juce::StringArray messages;
     bool allSuccess = true;
 
-    // 获取 GitHub Release 资源下载 URL
-    auto assetUrls = getAssetDownloadUrls();
+    try {
+        // 获取 GitHub Release 资源下载 URL
+        auto assetUrls = getAssetDownloadUrls();
 
-    if (assetUrls.isEmpty()) {
-        if (completionCallback_) {
-            completionCallback_(false, "无法获取 GitHub Release 资源列表，请检查网络连接");
+        if (assetUrls.isEmpty()) {
+            if (completionCallback_) {
+                completionCallback_(false, "无法获取 GitHub Release 资源列表，请检查网络连接");
+            }
+            downloading_ = false;
+            return;
         }
-        downloading_ = false;
-        return;
-    }
 
     // 确定需要下载的资源
     struct DownloadTask {
@@ -282,8 +283,6 @@ void ResourceDownloader::run() {
         progressCallback_(static_cast<int64>(tasks.size()), static_cast<int64>(tasks.size()), "完成");
     }
 
-    downloading_ = false;
-
     // 下载完成后，检查是否有预设库分片需要重组
     if (allSuccess) {
         // 检查是否存在分片文件
@@ -326,6 +325,23 @@ void ResourceDownloader::run() {
     if (completionCallback_) {
         completionCallback_(allSuccess, messages.joinIntoString("\n"));
     }
+
+    } catch (const std::exception& e) {
+        // 下载过程中任何异常都不抛出，仅记录日志
+        DBG("[LianCore] 资源下载异常: " << e.what());
+        allSuccess = false;
+        messages.add("下载异常: " + juce::String(e.what()));
+        if (completionCallback_) {
+            completionCallback_(false, messages.joinIntoString("\n"));
+        }
+    } catch (...) {
+        DBG("[LianCore] 资源下载未知异常");
+        if (completionCallback_) {
+            completionCallback_(false, "下载过程中发生未知异常");
+        }
+    }
+
+    downloading_ = false;
 }
 
 // =============================================================================

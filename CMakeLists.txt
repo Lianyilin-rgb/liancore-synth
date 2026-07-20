@@ -3,6 +3,18 @@
 # 根CMake构建文件
 # =============================================================================
 cmake_minimum_required(VERSION 3.24)
+
+# =============================================================================
+# 安全模式编译选项（最高优先级）
+# 当 LIANCORE_SAFE_MODE=ON 时：
+#   - 不启动 HTTP/WebSocket 服务器
+#   - 不加载 ONNX AI 模型
+#   - 不触发资源下载
+#   - 回退到原生 JUCE UI（CJKLookAndFeel + 基本控件）
+# 用途：在 DAW 崩溃或与其他插件冲突时，排查是否由 Web UI/AI/下载模块引起
+# =============================================================================
+option(LIANCORE_SAFE_MODE "Disable AI, Web UI, and resource download for safe plugin loading" OFF)
+
 # macOS 需要 Objective-C++ 支持（JUCE 内部使用 AppKit/Foundation）
 if(APPLE)
     project(LianCore VERSION 3.0.0 LANGUAGES C CXX OBJCXX)
@@ -96,7 +108,7 @@ juce_add_plugin(LianCore
     FORMATS ${LIANCORE_PLUGIN_FORMATS}
     VST3_CATEGORIES "Instrument|Synth"
 
-    # 是否需要UI
+    # 是否需要UI（安全模式下禁用 WebBrowserComponent，回退原生 JUCE UI）
     NEEDS_WEB_BROWSER TRUE
 
     # 禁用二进制资源编译器 (无BinaryData, 避免juceaide崩溃)
@@ -175,8 +187,8 @@ juce_add_plugin(LianCore
         # 插件入口
         src/plugin/PluginProcessor.cpp
         src/plugin/PluginEditor.cpp
-        src/plugin/SimpleHTTPServer.cpp
-        src/plugin/ResourceDownloader.cpp
+        $<$<NOT:$<BOOL:${LIANCORE_SAFE_MODE}>>:src/plugin/SimpleHTTPServer.cpp>
+        $<$<NOT:$<BOOL:${LIANCORE_SAFE_MODE}>>:src/plugin/ResourceDownloader.cpp>
         src/plugin/MPEProcessor.cpp
         src/plugin/MPERecorder.cpp
         src/plugin/OversamplingProcessor.cpp
@@ -211,6 +223,7 @@ juce_add_plugin(LianCore
         LIANCORE_MAX_MODULATION_ROUTES=32
         LIANCORE_MAX_UNDO_STEPS=50
         LIANCORE_MAX_POLYPHONY=32
+        $<$<BOOL:${LIANCORE_SAFE_MODE}>:LIANCORE_SAFE_MODE=1>
 )
 
 # ONNX Runtime 显式链接 (Generator Expression 在 juce_add_plugin 中可能不生效)
@@ -358,8 +371,6 @@ target_sources(LianCore PRIVATE
     # 插件入口
     src/plugin/PluginProcessor.cpp
     src/plugin/PluginEditor.cpp
-    src/plugin/SimpleHTTPServer.cpp
-    src/plugin/ResourceDownloader.cpp
     src/plugin/MPEProcessor.cpp
     src/plugin/MPERecorder.cpp
     src/plugin/OversamplingProcessor.cpp
@@ -401,6 +412,18 @@ if(APPLE)
         ${JUCE_DIR}/modules/juce_dsp/juce_dsp.cpp
         PROPERTIES LANGUAGE OBJCXX
     )
+endif()
+
+# 安全模式下排除 Web 服务器和资源下载器源文件
+if(NOT LIANCORE_SAFE_MODE)
+    target_sources(LianCore PRIVATE
+        src/plugin/SimpleHTTPServer.cpp
+        src/plugin/ResourceDownloader.cpp
+    )
+    target_compile_definitions(LianCore PRIVATE LIANCORE_SAFE_MODE=0)
+else()
+    target_compile_definitions(LianCore PRIVATE LIANCORE_SAFE_MODE=1)
+    message(STATUS "LianCore SAFE MODE enabled: No AI, Web UI, or resource download")
 endif()
 
 # ONNX Runtime 条件编译定义

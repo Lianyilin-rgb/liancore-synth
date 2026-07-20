@@ -1,13 +1,15 @@
 // =============================================================================
-// LianCore - PluginEditor VST3插件编辑器 (WebBrowserComponent + 内置HTTP服务器)
-// 嵌入 JUCE WebBrowserComponent 加载 Web UI，通过内置 HTTP 服务器提供静态文件
-// WebSocket 端口 9001 用于 UI ↔ C++ 核心实时通信
+// LianCore - PluginEditor VST3插件编辑器
+// 正常模式: WebBrowserComponent + 内置HTTP服务器
+// 安全模式: 原生 JUCE 组件（CJKLookAndFeel + 基本控件）
 // =============================================================================
 #pragma once
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#ifndef LIANCORE_SAFE_MODE
 #include "SimpleHTTPServer.h"
+#endif
 #include <unordered_map>
 #include <functional>
 
@@ -15,7 +17,9 @@ namespace LianCore {
 
 // =============================================================================
 // 简单WebSocket服务器 (用于与Web UI通信)
+// 仅在非安全模式下编译
 // =============================================================================
+#ifndef LIANCORE_SAFE_MODE
 class UIMessageServer : private juce::Thread {
 public:
     using MessageHandler = std::function<void(const juce::var&)>;
@@ -53,15 +57,14 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(UIMessageServer)
 };
+#endif // !LIANCORE_SAFE_MODE
 
 // =============================================================================
-// PluginEditor (WebBrowserComponent 嵌入式 Web UI)
-// 架构：
-//   PluginEditor → WebBrowserComponent → http://localhost:9000/index.html
-//                      ↑
-//             SimpleHTTPServer (端口 9000, 服务 VST3 Bundle 内静态文件)
-//                      ↑
-//             UIMessageServer (端口 9001, WebSocket 实时通信)
+// PluginEditor
+// 正常模式: WebBrowserComponent 嵌入式 Web UI
+//   架构：SimpleHTTPServer(端口9000) → WebBrowserComponent → UIMessageServer(端口9001)
+// 安全模式: 原生 JUCE 组件（CJKLookAndFeel + 参数标签+滑块）
+//   不依赖 HTTP/WebSocket/WebView2，确保最稳定
 // =============================================================================
 class PluginEditor : public juce::AudioProcessorEditor,
                      private juce::Timer {
@@ -77,6 +80,11 @@ private:
 
     PluginProcessor& processor_;
 
+#ifndef LIANCORE_SAFE_MODE
+    // =========================================================================
+    // 正常模式: Web 浏览器组件 + 服务器
+    // =========================================================================
+
     // 嵌入式 Web 浏览器组件 (Windows: WebView2/Edge, macOS: WKWebView)
     std::unique_ptr<juce::WebBrowserComponent> webBrowser_;
 
@@ -91,10 +99,6 @@ private:
     // 处理Web UI消息
     void setupMessageHandlers();
 
-    // =========================================================================
-    // Beta Week 8: morphTo 渐变 + ONNX 推理结果推送
-    // =========================================================================
-
     // 推送 ONNX 模型状态到 Web UI
     void pushOnnxStatus();
 
@@ -105,8 +109,24 @@ private:
     void onMorphComplete();
 
     // 获取 VST3 Bundle 内 UI 资源目录路径
-    // 返回 Contents/Resources/ui/ 的 File 对象
     static juce::File getBundleUIPath();
+#else
+    // =========================================================================
+    // 安全模式: 原生 JUCE UI 组件
+    // 使用 CJKLookAndFeel 确保中文不乱码
+    // =========================================================================
+
+    // 状态标签
+    std::unique_ptr<juce::Label> statusLabel_;
+    std::unique_ptr<juce::Label> infoLabel_;
+
+    // 核心参数滑块
+    std::unique_ptr<juce::Slider> volumeSlider_;
+    std::unique_ptr<juce::Label> volumeLabel_;
+
+    // 自定义 CJK 兼容 LookAndFeel
+    std::unique_ptr<juce::LookAndFeel> lookAndFeel_;
+#endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginEditor)
 };

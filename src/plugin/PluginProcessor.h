@@ -14,7 +14,9 @@
 #include "MPEProcessor.h"
 #include "MPERecorder.h"
 #include "OversamplingProcessor.h"
+#ifndef LIANCORE_SAFE_MODE
 #include "ResourceDownloader.h"
+#endif
 #include "../tuning/MicrotuningManager.h"
 #include "../synthesis/GranularPlayer.h"
 #include "../params/EffectsChainPreset.h"
@@ -133,7 +135,9 @@ public:
     AI::AudioTimbreAnalyzer& getTimbreAnalyzer() { return timbreAnalyzer_; }
 
     /** 获取资源下载管理器引用 */
+#ifndef LIANCORE_SAFE_MODE
     ResourceDownloader& getResourceDownloader() { return resourceDownloader_; }
+#endif
 
 private:
     // 核心组件
@@ -169,7 +173,9 @@ private:
     bool analyzing_ = false;
 
     // 资源下载管理器 (首次运行自动从 GitHub Release 下载预设库/波表库/AI模型)
+#ifndef LIANCORE_SAFE_MODE
     ResourceDownloader resourceDownloader_;
+#endif
 
     // 合成链节点ID
     NodeId oscNodeId_;
